@@ -12,7 +12,7 @@ A decision is final only when the lead marks it `decided` with a date.
 | D5 | 4 equal work packages; lead assigns people | decided | 2026-11-15 | See `docs/WORK-PACKAGES.md` |
 | D6 | Repo name and owner (personal account vs class org) | **open** | | Suggested name `indian-food-clip` |
 | D7 | Deadline and internal milestones | **open** | | |
-| D8 | WP → person assignment | **open** | | |
+| D8 | WP → person: WP1 Manish, WP2 Anuradha, WP3 Aradhya, WP4 Divyanshi | decided | 2026-11-15 | Issues #1-#4 assigned |
 | D9 | "English" prompt = English **description** (e.g. "spiced flattened rice"), "Hindi" = dish name romanized ("poha") and in Devanagari ("पोहा") | proposed | | Tests whether CLIP knows the dish *name* or needs a description |
 | D10 | Split: dedup with perceptual hash (distance ≤ 4), then 15 test imgs/class, rest train, seed 42 | proposed | | Locked once `splits/indian_split.csv` is committed |
 | D11 | CLIP models: OpenAI ViT-B/32, ViT-B/16, LAION XLM-R ViT-B/32 (multilingual) | proposed | | All via `open_clip` |

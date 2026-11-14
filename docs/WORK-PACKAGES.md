@@ -1,14 +1,14 @@
 # Work packages (equal weight, ~14 h each)
 
-Lead assigns one WP per person (fill the Owner column). Claude has already written the code; the owner
+One WP per person (assigned by the lead, 2026-11-15). Claude has already written the code; the owner
 **runs it, checks it, fixes problems, and writes the report section**.
 
 | WP | Owner | Blocked by | Report section |
 |---|---|---|---|
-| WP1 Data & repo | TBD | — | 1 Introduction, 3 Dataset |
-| WP2 CNN baseline | TBD | WP1 split | 2 Related work, 4.1 + 5.1 CNN |
-| WP3 Zero-shot, language, bias | TBD | WP1 split | 4.2 + 5.2 Zero-shot, 5.3 Bias |
-| WP4 Few-shot & gap | TBD | WP1 split, WP3 features | 4.3 + 5.4 Few-shot, 6 Conclusion, Abstract |
+| WP1 Data & repo | Manish Tiwari | — | 1 Introduction, 3 Dataset |
+| WP2 CNN baseline | Anuradha Tiwari | WP1 split | 2 Related work, 4.1 + 5.1 CNN |
+| WP3 Zero-shot, language, bias | Aradhya Patel | WP1 split | 4.2 + 5.2 Zero-shot, 5.3 Bias |
+| WP4 Few-shot & gap | Divyanshi Rathour | WP1 split, WP3 features | 4.3 + 5.4 Few-shot, 6 Conclusion, Abstract |
 
 ## WP1 — Data & repo (~14 h)
 - [ ] Create GitHub repo, push initial code, add teammates, protect `main` (no direct push). (2 h)
