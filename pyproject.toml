@@ -1,0 +1,9 @@
+[project]
+name = "foodclip"
+version = "0.1.0"
+description = "Zero-shot vs few-shot Indian food recognition with CLIP (Team 11, P11)"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "tests"]

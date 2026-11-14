@@ -1,0 +1,22 @@
+# data, caches, weights - never commit
+data/raw/
+features/
+checkpoints/
+*.pt
+*.npz
+# python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+.ipynb_checkpoints/
+# latex build
+report/*.aux
+report/*.log
+report/*.out
+report/*.bbl
+report/*.blg
+report/*.synctex.gz
+# secrets
+kaggle.json
+.env

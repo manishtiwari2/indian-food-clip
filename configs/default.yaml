@@ -1,0 +1,47 @@
+# All paths are relative to the repo root unless absolute.
+# Override any value from the CLI:  --set paths.indian_raw=/kaggle/input/... cnn.epochs=5
+seed: 42
+
+paths:
+  indian_raw: data/raw/indian        # folder that contains one sub-folder per class
+  food101_root: data/raw/food101     # torchvision Food101 root (contains food-101/)
+  class_names: data/class_names.csv
+  splits: splits
+  features: features
+  results: results
+  figures: report/figures
+  checkpoints: checkpoints
+
+split:
+  test_per_class: 15
+  dedup_max_distance: 4              # perceptual-hash Hamming distance; 0 = exact duplicates only
+
+food101:
+  n_classes: 80
+  per_class: 50
+
+cnn:
+  image_size: 128
+  batch_size: 64
+  epochs: 50
+  lr: 0.001
+  weight_decay: 0.0005
+  val_fraction: 0.1
+  num_workers: 2
+
+clip:
+  batch_size: 128
+  num_workers: 2
+  models:
+    - {name: ViT-B-32, pretrained: openai}
+    - {name: ViT-B-16, pretrained: openai}
+    - {name: xlm-roberta-base-ViT-B-32, pretrained: laion5b_s13b_b90k}
+
+zeroshot:
+  languages: [english, hindi_roman, hindi_devanagari]
+  templates: [plain, food, indian, ensemble, hindi_native]
+
+fewshot:
+  shots: [1, 2, 4, 8, 16, 0]         # 0 = all training images
+  seeds: [0, 1, 2]
+  C: 0.316                           # inverse L2 strength for logistic regression
