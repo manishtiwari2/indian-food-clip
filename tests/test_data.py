@@ -21,6 +21,20 @@ def test_corrupt_and_duplicate_are_removed(fake_indian):
     assert (removed["reason"] == "duplicate").all()
 
 
+def test_cross_class_duplicate_drops_both_copies(fake_indian):
+    import shutil
+
+    class_root = find_class_root(fake_indian)
+    shutil.copy(class_root / "jalebi" / "001.jpg", class_root / "rasgulla" / "copy.jpg")
+    _, df = list_images(class_root)
+    df = df[[is_valid_image(class_root / r) for r in df["relpath"]]]
+    kept, removed = dedup(df, class_root, max_distance=0)
+    cross = removed[removed.reason == "cross_class_duplicate"]
+    assert set(cross["relpath"]) == {"jalebi/001.jpg", "rasgulla/copy.jpg"}
+    assert not set(cross["relpath"]) & set(kept["relpath"])
+    assert len(kept) == len(CLASSES) * PER_CLASS - 1  # jalebi/001 gone, copy gone, poha dup gone
+
+
 def test_split_has_no_leakage_and_is_deterministic(fake_indian):
     _, df = list_images(fake_indian)
     a = stratified_split(df, test_per_class=3, seed=42)

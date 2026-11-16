@@ -82,6 +82,7 @@ def hamming_matrix(a: np.ndarray, b: np.ndarray) -> np.ndarray:
 
 def dedup(df: pd.DataFrame, class_root: Path, max_distance: int) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Greedy near-duplicate removal over the whole dataset (keeps the first image of a group).
+    If a duplicate appears in a *different* class, both copies are removed (label unknown).
     Returns (kept, removed); removed has `duplicate_of` and `reason` columns."""
     df = df.sort_values(["label", "relpath"]).reset_index(drop=True)
     bits = phash_bits([class_root / r for r in df["relpath"]])
@@ -97,13 +98,17 @@ def dedup(df: pd.DataFrame, class_root: Path, max_distance: int) -> tuple[pd.Dat
             for j in np.nonzero(dist[off] <= max_distance)[0]:
                 if j > i and j not in removed_of:
                     removed_of[int(j)] = i
+    reason = {j: "duplicate" if df.loc[i, "label"] == df.loc[j, "label"] else "cross_class_duplicate"
+              for j, i in removed_of.items()}
+    # D10: the same photo in two classes has an untrustworthy label, so drop the kept copy too.
+    for j, i in list(removed_of.items()):
+        if reason[j] == "cross_class_duplicate" and i not in removed_of:
+            removed_of[i] = j
+            reason[i] = "cross_class_duplicate"
     rem_idx = sorted(removed_of)
     removed = df.loc[rem_idx].copy()
     removed["duplicate_of"] = [df.loc[removed_of[j], "relpath"] for j in rem_idx]
-    removed["reason"] = [
-        "duplicate" if df.loc[removed_of[j], "label"] == df.loc[j, "label"] else "cross_class_duplicate"
-        for j in rem_idx
-    ]
+    removed["reason"] = [reason[j] for j in rem_idx]
     kept = df.drop(index=rem_idx).reset_index(drop=True)
     return kept, removed.reset_index(drop=True)
 
