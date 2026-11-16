@@ -14,7 +14,7 @@ A decision is final only when the lead marks it `decided` with a date.
 | D7 | Deadline and internal milestones | **open** | | |
 | D8 | WP → person: WP1 Manish, WP2 Anuradha, WP3 Aradhya, WP4 Divyanshi | decided | 2026-11-15 | Issues #1-#4 assigned |
 | D9 | "English" prompt = English **description** (e.g. "spiced flattened rice"), "Hindi" = dish name romanized ("poha") and in Devanagari ("पोहा") | proposed | | Tests whether CLIP knows the dish *name* or needs a description |
-| D10 | Split: dedup with perceptual hash (distance ≤ 4), then 15 test imgs/class, rest train, seed 42 | proposed | | Locked once `splits/indian_split.csv` is committed |
+| D10 | Split: dedup with perceptual hash (distance ≤ 4); a photo found in two classes is dropped from both; then 15 test imgs/class (30% if class < 30 imgs), rest train, seed 42 | decided | 2026-11-16 | Visual check of 26 removed pairs: all true duplicates. 17 tikka-masala photos were also filed as chicken_tikka. Locked once `splits/indian_split.csv` is committed |
 | D11 | CLIP models: OpenAI ViT-B/32, ViT-B/16, LAION XLM-R ViT-B/32 (multilingual) | proposed | | All via `open_clip` |
 | D12 | Few-shot: linear probe at 1/2/4/8/16/all shots, seeds 0/1/2 | proposed | | |
 | D13 | Optional full fine-tune of ViT-B/16 | **open** | | Only if time remains |
