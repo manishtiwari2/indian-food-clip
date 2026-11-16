@@ -10,7 +10,17 @@
 \usepackage{amsmath}
 \usepackage{xcolor}
 \usepackage[hidelinks]{hyperref}
+\usepackage{lastpage}
 \graphicspath{{figures/}}
+
+% Header values required by elcvia.sty's \maketitle ("ELCVIA vol(num):first-last, year").
+\newcommand{\vol}{0}
+\newcommand{\num}{0}
+\setcounter{page}{1}
+\newcommand{\begpag}{\thepage}
+\newcommand{\finpag}{\pageref{LastPage}}
+\newcommand{\yearp}{2026}
+\renewcommand{\thefootnote}{\fnsymbol{footnote}}
 \newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
 
 \begin{document}
