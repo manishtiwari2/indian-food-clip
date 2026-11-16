@@ -67,7 +67,7 @@ Tests use synthetic images only (no download, no GPU, no open_clip needed).
 ## Team (Team 11, Project P11)
 | Member | GitHub | Work package |
 |---|---|---|
-| Manish Tiwari | manishtiwari2 | TBD (lead assigns) |
-| Aradhya Patel | Aradhya6394 | TBD |
-| Divyanshi Rathour | Rathourdivyanshi6398 | TBD |
-| Anuradha Tiwari | Anuradhatiwari01 | TBD |
+| Manish Tiwari (lead) | manishtiwari2 | WP1 Data & repo (#1) |
+| Anuradha Tiwari | Anuradhatiwari01 | WP2 CNN baseline (#2) |
+| Aradhya Patel | Aradhya6394 | WP3 Zero-shot, language, bias (#3) |
+| Divyanshi Rathour | Rathourdivyanshi6398 | WP4 Few-shot & gap (#4) |
