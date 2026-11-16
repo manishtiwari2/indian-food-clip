@@ -30,7 +30,36 @@ Team 11 (P11), \todo{department, institution}}
 \section{Introduction}
 % Owner: WP1. Motivation: vision-language models are trained on mostly Western, English web data.
 % Do they recognise Indian dishes (poha, dhokla, ...)? Research questions RQ1-RQ3. Contributions list.
-\todo{introduction}
+% DRAFT written with Claude from the committed CSVs. Owner (WP1) must rewrite in own words before submission.
+Vision-language models such as CLIP~\cite{radford2021clip} learn to match images with text from
+hundreds of millions of image--caption pairs collected from the web. Because they compare an image
+with a written class name, they can classify images into categories they were never explicitly trained
+on (zero-shot classification). However, web data is not evenly spread across cultures and languages:
+most captions are in English and describe content that is common online. A dish such as \emph{poha}
+or \emph{sohan papdi} may appear far less often, and under many spellings, than \emph{pizza} or
+\emph{apple pie}. It is therefore unclear how well such a model serves users whose everyday food is
+under-represented in its training data.
+
+Food recognition is a useful test of this question. Dishes are visually fine-grained, many Indian
+dishes look alike (several fried sweets in syrup, many curries in a similar gravy), and their names
+are usually Hindi or regional words rather than English. We study 80 Indian dishes and ask three
+research questions:
+\begin{itemize}
+  \item \textbf{RQ1.} How accurate is CLIP zero-shot on Indian dishes, compared with a CNN trained
+        from scratch on the same small dataset?
+  \item \textbf{RQ2.} Does the language of the class name matter: an English description
+        (``spiced flattened rice''), the romanised Hindi name (``poha''), or the same name written
+        in Devanagari script? Does a multilingual text encoder help?
+  \item \textbf{RQ3.} How large is the gap between zero-shot accuracy on Indian food and on Western
+        food (Food-101~\cite{bossard2014food101}), and how many labelled images per class does a
+        linear probe on CLIP features need to close it?
+\end{itemize}
+
+Our contributions are: (i) a cleaned and de-duplicated split of a public 80-class Indian food dataset,
+with English, romanised Hindi and Devanagari names for every class; (ii) a size-matched comparison set
+of 80 Food-101 classes; (iii) a controlled comparison of a CNN baseline, CLIP zero-shot with several
+prompt templates and languages, and few-shot linear probes; and (iv) open code and splits so that
+every number in this report can be reproduced. \todo{one-sentence summary of main findings once results exist}
 
 \section{Related Work}
 % Owner: WP2. CLIP~\cite{radford2021clip}; Food-101~\cite{bossard2014food101}; multilingual CLIP~\cite{cherti2023openclip};
@@ -41,7 +70,59 @@ Team 11 (P11), \todo{department, institution}}
 % Owner: WP1. Source + licence note (Google-scraped, academic use). Cleaning: corrupt + perceptual-hash
 % duplicates removed (counts from splits/indian_removed.csv). Split table. Food-101 subset (80 x 50).
 % Class names: English description, romanised Hindi, Devanagari (data/class_names.csv).
-\todo{dataset table from splits/*.csv}
+% DRAFT written with Claude. Every number comes from splits/*.csv (Kaggle run p11-wp1-data-prep v2,
+% code commit 70ec518). Owner (WP1) must rewrite in own words before submission.
+\paragraph{Indian dishes.} We use the Kaggle \emph{Indian Food Images Dataset}~\cite{banerjee2022indianfood},
+which contains 4{,}000 images of 80 dishes (50 per class) collected from web image search. The
+dataset gives no licence beyond academic use and no official train/test split. Because the images were
+scraped, the same photo often appears more than once. We removed near-duplicates with a 64-bit
+perceptual hash: two images whose hashes differ in at most 4 bits are treated as copies and only the
+first is kept. A visual check of 26 randomly sampled removed pairs found that all of them were true
+copies (identical or re-compressed versions of the same photo). When a copy appeared in a
+\emph{different} class, its label is unreliable, so both copies were removed. No file was corrupt.
+
+Table~\ref{tab:data} summarises the result. Of the 4{,}000 images, 559 were removed: 507 within-class
+duplicates and 52 images whose copy was filed under another dish. The remaining 3{,}441 images
+(27--49 per class, median 44) were split per class with a fixed seed into 15 test images and the rest
+for training. Two classes with fewer than 30 images keep 30\% for testing instead
+(chicken\_tikka: 9, chicken\_tikka\_masala: 8 test images). Train and test sets share no image.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrr}
+\toprule
+ & Indian (ours) & Food-101 subset \\
+\midrule
+Classes & 80 & 80 \\
+Images before cleaning & 4{,}000 & -- \\
+Removed: within-class duplicates & 507 & -- \\
+Removed: same photo in two classes & 52 & -- \\
+Images used & 3{,}441 & 4{,}000 \\
+Train / test & 2{,}254 / 1{,}187 & -- / 4{,}000 \\
+Images per class & 27--49 (median 44) & 50 \\
+\bottomrule
+\end{tabular}
+\caption{Datasets after cleaning. Food-101 images are used only for zero-shot evaluation.}
+\label{tab:data}
+\end{table}
+
+\paragraph{Western dishes.} For the bias comparison we use Food-101~\cite{bossard2014food101}.
+To match the Indian set in size, we randomly select (seed 42) 80 of its 101 classes and 50 images per
+class from its official test split, giving 4{,}000 images. These are used only for zero-shot
+evaluation, so no Food-101 training images are needed.
+
+\paragraph{Class names.} Each Indian class has three names, used as prompt text in our experiments:
+an English description of the dish (e.g.\ ``spiced flattened rice''), the dish name in Latin script
+as it is commonly written (``poha''), and the same name in Devanagari. The Hindi names were written by
+the team and checked by a native speaker. \todo{confirm once the Hindi-name review PR is merged}
+
+\paragraph{Label noise.} The de-duplication step exposed label noise in the source data. The largest
+case is 17 photos that appear in both the \emph{chicken tikka} and \emph{chicken tikka masala}
+folders; on inspection they show chicken in a curry gravy, i.e.\ tikka masala. These photos are now
+excluded from both classes, which leaves these two classes with the fewest images (29 and 27). Other
+cross-class copies involve visually similar sweets (e.g.\ adhirasam/ariselu, rabri with basundi,
+ghevar and gulab jamun). Some mislabelled images that are not duplicates likely remain; we discuss
+this in Section~\ref{sec:limits}.
 
 \section{Methods}
 \subsection{CNN from scratch}      % Owner: WP2
@@ -68,7 +149,8 @@ Team 11 (P11), \todo{department, institution}}
 % \caption{Few-shot linear probe accuracy on the Indian test set.}\label{fig:fewshot}
 % \end{figure}
 
-\section{Discussion and Limitations}
+\section{Discussion and Limitations}\label{sec:limits}
+% WP1 note: mention the 52 cross-class copies / 17 chicken tikka masala photos (Section 3) here.
 % Noisy scraped labels, small test set (15/class), Food-101 overlap, Hindi spellings, compute limits.
 \todo{discussion}
 
