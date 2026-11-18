@@ -27,6 +27,7 @@ cnn:
   lr: 0.001
   weight_decay: 0.0005
   val_fraction: 0.1
+  color_jitter: 0.0                  # brightness/contrast jitter strength for training; 0 = off
   num_workers: 2
 
 clip:

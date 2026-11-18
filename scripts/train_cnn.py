@@ -40,7 +40,7 @@ def main() -> None:
     tr_idx, val_idx = train_test_split(train_idx, test_size=n_val, random_state=cfg["seed"], stratify=stratify)
 
     def loader(idx, train):
-        ds = ImageDataset(paths[idx], y[idx], SimpleTransform(c["image_size"], train))
+        ds = ImageDataset(paths[idx], y[idx], SimpleTransform(c["image_size"], train, c.get("color_jitter", 0.0)))
         return torch.utils.data.DataLoader(ds, batch_size=c["batch_size"], shuffle=train,
                                            num_workers=c["num_workers"], pin_memory=device.type == "cuda")
 
@@ -69,7 +69,7 @@ def main() -> None:
     scores, test_y = predict(model, test_dl, device)
     res = resolve(cfg["paths"]["results"])
     row = {"run": args.run_name, "model": "SmallResNet", "image_size": c["image_size"], "epochs": c["epochs"],
-           "lr": c["lr"], "seed": cfg["seed"], "best_val_acc": best, "n_train": len(tr_idx),
+           "lr": c["lr"], "color_jitter": c.get("color_jitter", 0.0), "seed": cfg["seed"], "best_val_acc": best, "n_train": len(tr_idx),
            **summarize(scores, test_y), **run_meta()}
     write_rows([row], res / "cnn.csv", append=True)
     write_rows(history, res / "cnn_history.csv", append=True)

@@ -8,7 +8,7 @@ from typing import Callable, Sequence
 import numpy as np
 import pandas as pd
 import torch
-from PIL import Image
+from PIL import Image, ImageEnhance
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 IMAGENET_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
@@ -163,9 +163,11 @@ def load_class_names(path: str | Path) -> pd.DataFrame:
 class SimpleTransform:
     """Torch-only image transform for the CNN (no torchvision needed)."""
 
-    def __init__(self, size: int, train: bool):
+    def __init__(self, size: int, train: bool, color_jitter: float = 0.0):
+        # color_jitter = max relative change of brightness and contrast (0 = off, e.g. 0.3 -> factor in [0.7, 1.3]).
         self.size = size
         self.train = train
+        self.color_jitter = color_jitter
 
     def __call__(self, im: Image.Image) -> torch.Tensor:
         im = im.convert("RGB")
@@ -178,6 +180,10 @@ class SimpleTransform:
             im = im.crop((x, y, x + side, y + side)).resize((self.size, self.size), Image.BILINEAR)
             if random.random() < 0.5:
                 im = im.transpose(Image.FLIP_LEFT_RIGHT)
+            if self.color_jitter > 0:  # only draws random numbers when on, so jitter=0 matches earlier runs exactly
+                j = self.color_jitter
+                im = ImageEnhance.Brightness(im).enhance(random.uniform(1 - j, 1 + j))
+                im = ImageEnhance.Contrast(im).enhance(random.uniform(1 - j, 1 + j))
         else:
             short = int(self.size * 1.14)
             r = short / min(w, h)

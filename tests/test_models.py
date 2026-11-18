@@ -72,3 +72,23 @@ def test_config_overrides():
     assert cfg["cnn"]["epochs"] == 3
     assert cfg["paths"]["indian_raw"] == "/tmp/x"
     assert cfg["fewshot"]["shots"] == [1, 2]
+
+
+def test_color_jitter_off_is_unchanged_and_on_changes_brightness():
+    import random
+
+    from PIL import Image
+
+    from foodclip.data import SimpleTransform
+
+    im = Image.new("RGB", (64, 64), (120, 120, 120))
+    random.seed(0)
+    off = SimpleTransform(32, True, 0.0)(im)
+    random.seed(0)
+    off_again = SimpleTransform(32, True, 0.0)(im)
+    assert torch.equal(off, off_again)
+    random.seed(0)
+    on = SimpleTransform(32, True, 0.5)(im)
+    assert on.shape == off.shape and not torch.equal(on, off)
+    # validation transform ignores jitter
+    assert torch.equal(SimpleTransform(32, False, 0.5)(im), SimpleTransform(32, False, 0.0)(im))
