@@ -72,11 +72,15 @@ prompt templates and languages, and few-shot linear probes; and (iv) open code a
 every number in this report can be reproduced. \todo{one-sentence summary of main findings once results exist}
 
 \section{Related Work}
-% Owner: WP2. CLIP~\cite{radford2021clip}; Food-101~\cite{bossard2014food101}; multilingual CLIP~\cite{cherti2023openclip};
-% Indian food datasets; cultural/geographic bias in vision models.
-\todo{related work}
+\paragraph{CLIP and zero-shot recognition.} CLIP~\cite{radford2021clip} learns image and text features together. During training, it learns to place matching images and captions close to each other in the feature space. This allows it to classify images without training on the target classes directly. For zero-shot classification, class names are placed in a prompt such as ``a photo of pizza''. CLIP compares the image with these text prompts and selects the closest match. OpenCLIP~\cite{cherti2023openclip} is an open implementation of CLIP trained with public datasets. It also includes multilingual models, including models trained using LAION-5B~\cite{schuhmann2022laion5b}. These models are used in our zero-shot and few-shot experiments.
 
-\section{Dataset}
+\paragraph{Food recognition.} Food-101~\cite{bossard2014food101} is a widely used food-image benchmark. It contains 101 classes, with 1,000 images per class: 750 for training and 250 for testing. The test images were manually cleaned, while some noise remains in the training images. Our Indian-food dataset is the Kaggle Indian Food Images Dataset~\cite{banerjee2022indianfood}, which contains 80 classes and is described in Section~\ref{sec:dataset}. \todo{Add one or two published Indian food-recognition papers after reading them.}
+
+\paragraph{Bias in vision datasets and models.} Image datasets do not represent all countries and cultures equally. Shankar et al.~\cite{shankar2017geodiversity} found that two large public image datasets show a clear bias towards images from North America and Europe, and that classifiers trained on them perform very differently on images from different locales. De Vries et al.~\cite{devries2019everyone} tested publicly available object-recognition systems on a geographically diverse set of household items. They found that the systems perform relatively poorly on items that are common in countries with a low household income, and they link this mainly to differences in appearance and context. These findings motivate our study of how well CLIP recognises Indian dishes compared with Western dishes.
+
+\paragraph{CNNs trained from scratch.} Residual networks use shortcut connections to help train deeper networks~\cite{he2016resnet}. However, a model trained from scratch on a small dataset may learn the training images well without generalising to new images. We use a small residual CNN as a baseline (Section~\ref{sec:cnn-method}) to measure what can be learned from our Indian-food training data alone. We then compare this result with the pre-trained CLIP models.
+
+\section{Dataset}\label{sec:dataset}
 % Owner: WP1. Source + licence note (Google-scraped, academic use). Cleaning: corrupt + perceptual-hash
 % duplicates removed (counts from splits/indian_removed.csv). Split table. Food-101 subset (80 x 50).
 % Class names: English description, romanised Hindi, Devanagari (data/class_names.csv).
@@ -135,8 +139,38 @@ ghevar and gulab jamun). Some mislabelled images that are not duplicates likely 
 this in Section~\ref{sec:limits}.
 
 \section{Methods}
-\subsection{CNN from scratch}      % Owner: WP2
-\todo{architecture, augmentation, training setup}
+\subsection{CNN from scratch}\label{sec:cnn-method}      % Owner: WP2
+We trained a small CNN from scratch using the Indian-food training images. The network follows the ResNet design~\cite{he2016resnet} and has four stages, with two residual blocks in each stage. The stages use 32, 64, 128 and 256 channels. The first layer is a $3\times3$ convolution with stride 2. Each residual block contains two $3\times3$ convolutions, batch normalisation~\cite{ioffe2015batchnorm}, and ReLU, with a shortcut connection. At the end, global average pooling is followed by dropout~\cite{srivastava2014dropout} with a rate of 0.3 and a linear layer with 80 outputs. The model has 2{,}815{,}600 parameters.
+
+\paragraph{Data and augmentation.} We used the 2{,}254 images in the Indian training split (Section~\ref{sec:dataset}). We set aside 10\% (225 images) for validation, keeping the class distribution balanced. The remaining 2{,}029 images were used for training. The test set of 1{,}187 images was not used for training or model selection. Input images were resized to $128\times128$ and normalised using the ImageNet mean and standard deviation. During training, we used random square crops covering 60--100\% of the largest square area in the image, resized to the input dimensions, and random horizontal flips. For validation and test, images were resized and centre-cropped.
+
+\paragraph{Training.} The training settings are listed in Table~\ref{tab:cnncfg}. We used cross-entropy loss with label smoothing of 0.1~\cite{szegedy2016rethinking}, the AdamW optimiser~\cite{loshchilov2019adamw}, and a cosine learning-rate schedule~\cite{loshchilov2017sgdr}. Training was performed with mixed precision~\cite{micikevicius2018mixed} on a Tesla T4 GPU in Kaggle. We evaluated the model on the validation set after each epoch and saved the checkpoint with the highest validation accuracy. This checkpoint was then used for test evaluation.
+
+\begin{table}[t]
+\centering
+\begin{tabular}{ll}
+\toprule
+Setting & Value \\
+\midrule
+Optimiser & AdamW, learning rate 0.001, weight decay 0.0005 \\
+Schedule & cosine decay, one step per epoch \\
+Batch size & 64 \\
+Epochs & 50 \\
+Input size & $128\times128$ pixels \\
+Loss & cross-entropy, label smoothing 0.1 \\
+Dropout & 0.3 \\
+Train / validation / test images & 2{,}029 / 225 / 1{,}187 \\
+Random seed & 42 \\
+\bottomrule
+\end{tabular}
+\caption{Training settings for the baseline CNN.}
+\label{tab:cnncfg}
+\end{table}
+
+\paragraph{Variants.} We tested three changes to the baseline, while keeping the other settings the same: \texttt{size160} used $160\times160$ input images; \texttt{ep30} trained for 30 instead of 50 epochs, with the cosine schedule ending at epoch 30; and \texttt{jitter03} added brightness and contrast changes, with random factors from 0.7 to 1.3. Each experiment was run once using seed 42.
+
+\paragraph{Metrics.} We evaluated the models using top-1 accuracy, top-5 accuracy, and macro-F1 on the test set. Top-1 accuracy is the fraction of images for which the highest-scoring class is correct. Top-5 accuracy is the fraction for which the correct class appears among the five highest-scoring classes. Macro-F1 is calculated by finding the F1 score for each of the 80 classes and taking their average, so all classes have equal weight. We also report per-class accuracy.
+
 \subsection{CLIP zero-shot and prompt engineering}   % Owner: WP3
 % Cosine similarity between image and class text embeddings; templates; prompt ensembling; languages.
 \todo{zero-shot method}
@@ -145,7 +179,49 @@ this in Section~\ref{sec:limits}.
 
 \section{Results}
 \subsection{CNN baseline}          % results/cnn.csv, figures/cnn_curves.pdf
-\todo{CNN results}
+The test results are shown in Table~\ref{tab:cnn}. The baseline model correctly classified 290 of the 1{,}187 test images, giving 24.4\% top-1 accuracy. Its top-5 accuracy was 56.1\%, and its macro-F1 score was 22.9\%. With 80 classes, random guessing gives 1.25\% top-1 accuracy. The CNN performs better than random guessing, but its overall accuracy is still low. This is likely challenging because the model was trained on only about 25 images per class.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{llrrrrr}
+\toprule
+Run & Change & Top-1 & Top-5 & Macro-F1 & Train acc. & Best val. acc. \\
+\midrule
+\texttt{baseline} & none & 24.4 & 56.1 & 22.9 & 53.9 & 25.3 \\
+\texttt{size160} & $160\times160$ input & \textbf{26.4} & 56.4 & \textbf{25.5} & 50.4 & 25.8 \\
+\texttt{ep30} & 30 epochs & 21.3 & 51.5 & 19.6 & 34.0 & 23.1 \\
+\texttt{jitter03} & colour jitter 0.3 & 24.4 & \textbf{56.9} & 23.0 & 41.1 & 24.4 \\
+\bottomrule
+\end{tabular}
+\caption{CNN results (\%) on the 1{,}187 Indian-food test images. Train accuracy is measured on the augmented training batches in the final epoch. Best validation accuracy is the highest value on the 225 validation images. Each run used seed 42.}
+\label{tab:cnn}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.85\linewidth]{cnn_curves.pdf}
+\caption{Accuracy across epochs for the four CNN runs. Solid lines show validation accuracy and dashed lines show accuracy on augmented training batches.}
+\label{fig:cnncurves}
+\end{figure}
+
+\paragraph{Overfitting.} Figure~\ref{fig:cnncurves} shows that the baseline training accuracy continued to increase and reached 53.9\%. However, validation accuracy stopped improving around 24--25\% after about epoch 35. Its best validation accuracy was 25.3\% at epoch 37. This gap suggests that the model learned the training images better than it generalised to unseen images. Training accuracy is measured on augmented images while the model is being updated, so it is not directly comparable to validation accuracy.
+
+\paragraph{Effect of the changes.} The \texttt{size160} run performed best in these experiments. It correctly classified 313 images, compared with 290 for the baseline. Its top-1 accuracy was 26.4\% and its macro-F1 was 25.5\%, compared with 24.4\% and 22.9\% for the baseline. The 30-epoch run performed worse, with 21.3\% top-1 accuracy and 253 correct predictions. Colour jitter reduced training accuracy from 53.9\% to 41.1\%, but did not improve top-1 test accuracy: both runs correctly classified 290 images. Jitter gave a small increase in top-5 accuracy and macro-F1.
+
+\paragraph{Reliability of the results.} Each setting was tested only once, so we cannot estimate the effect of different random seeds. The test set contains 1{,}187 images, giving a standard error of about 1.3 percentage points for accuracy near 25\%. The 1.9-point improvement from \texttt{size160} is close to this uncertainty and should not be treated as a strong conclusion. The 3.1-point drop for \texttt{ep30} is larger, but it is also based on a single run.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{cnn_worst_classes.pdf}
+\caption{Test accuracy for the 15 hardest and 15 easiest classes from the best CNN run (\texttt{size160}). Most classes have 15 test images, so accuracy changes in steps of 6.7 percentage points.}
+\label{fig:cnnclasses}
+\end{figure}
+
+\paragraph{Accuracy by class.} Figure~\ref{fig:cnnclasses} shows that the model's performance varied across dishes. For \texttt{size160}, mean class accuracy was 26.7\%. Eleven classes reached at least 50\% accuracy, while five classes had 0\%. Naan and palak paneer had the highest accuracy (73.3\% each), followed by gulab jamun (66.7\%), chicken tikka masala (62.5\%, 5 of 8 images), and poha (60.0\%). Aloo tikki, karela bharta, mysore pak, qubani ka meetha, and sheera had 0\% accuracy. The baseline also had five classes with 0\% accuracy, while \texttt{ep30} had ten. We did not save the model predictions, so we cannot identify which classes were predicted instead for these difficult dishes. \todo{If time allows, save predictions and report the most common class confusions.}
+
+This CNN provides a reference for the CLIP experiments. Trained only on the 2{,}029 Indian-food training images, it achieved 24.4--26.4\% top-1 accuracy across the runs. We will compare it with the zero-shot and few-shot CLIP results in the later sections. \todo{Add the comparison when the zero-shot and few-shot results are available.}
+
 \subsection{Zero-shot and prompt language}  % results/zeroshot.csv, figures/zeroshot_language.pdf
 \todo{zero-shot table}
 \subsection{Indian vs Western bias}  % figures/zeroshot_bias.pdf, figures/worst_classes.pdf
