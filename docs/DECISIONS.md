@@ -10,7 +10,7 @@ A decision is final only when the lead marks it `decided` with a date.
 | D3 | Git flow: same as CPS (issue → branch → PR → review → merge commit) | decided | 2026-11-15 | |
 | D4 | Claude builds the pipeline; team runs, verifies, writes the report | decided | 2026-11-15 | Boundaries in `CLAUDE.md` |
 | D5 | 4 equal work packages; lead assigns people | decided | 2026-11-15 | See `docs/WORK-PACKAGES.md` |
-| D6 | Repo name and owner (personal account vs class org) | **open** | | Suggested name `indian-food-clip` |
+| D6 | Repo name and owner (personal account vs class org) | decided | 2026-11-19 | Public repo `manishtiwari2/indian-food-clip` |
 | D7 | Deadline and internal milestones | **open** | | |
 | D8 | WP → person: WP1 Manish, WP2 Anuradha, WP3 Aradhya, WP4 Divyanshi | decided | 2026-11-15 | Issues #1-#4 assigned |
 | D9 | "English" prompt = English **description** (e.g. "spiced flattened rice"), "Hindi" = dish name romanized ("poha") and in Devanagari ("पोहा") | decided | 2026-11-19 | Tests whether CLIP knows the dish *name* or needs a description |
