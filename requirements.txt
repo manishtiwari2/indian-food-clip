@@ -2,6 +2,7 @@
 torch>=2.3
 torchvision>=0.18          # only for downloading Food-101
 open_clip_torch==2.26.1
+transformers<5             # text encoder of the multilingual XLM-R CLIP; v5 removed batch_encode_plus used by open_clip 2.26.1
 numpy>=1.24
 pandas>=2.0
 scikit-learn>=1.3

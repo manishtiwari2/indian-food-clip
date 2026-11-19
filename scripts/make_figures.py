@@ -43,8 +43,8 @@ def fig_bias(zs: pd.DataFrame, out: Path) -> None:
     ax.set_xticks(np.arange(len(models)) + w, models)
     ax.set_ylabel("zero-shot top-1")
     ax.set_ylim(0, 1)
-    ax.legend(fontsize=7)
-    ax.set_title("Indian vs Western zero-shot accuracy (template: 'a photo of {}, a type of food.')")
+    ax.legend(fontsize=7, loc="upper left", bbox_to_anchor=(1.01, 1))
+    ax.set_title("Indian vs Western zero-shot accuracy\n(template: 'a photo of {}, a type of food.')", fontsize=9)
     fig.savefig(out / "zeroshot_bias.pdf")
     plt.close(fig)
 
@@ -96,17 +96,24 @@ def fig_fewshot_and_gap(fsh: pd.DataFrame, zs: pd.DataFrame | None, out: Path, r
     print(pd.DataFrame(gap_rows).to_string(index=False))
 
 
-def fig_worst_classes(pc: pd.DataFrame, out: Path, n: int = 20) -> None:
+def fig_worst_classes(pc: pd.DataFrame, zs: pd.DataFrame | None, out: Path, n: int = 20) -> None:
+    """Hardest Indian dishes for the model with the best Indian top-1 (romanised Hindi name, 'food' template)."""
     sub = pc[(pc.dataset == "indian") & (pc.template == "food") & (pc.language == "hindi_roman")]
     if sub.empty:
         return
-    model = sub["model"].iloc[-1]  # last model in config order
-    worst = sub[sub.model == model].nsmallest(n, "accuracy")
+    if zs is not None:
+        best = zs[(zs.dataset == "indian") & (zs.template == "food") & (zs.language == "hindi_roman")]
+        model = best.loc[best["top1"].idxmax(), "model"]
+    else:
+        model = sub.groupby("model")["accuracy"].mean().idxmax()
+    worst = sub[sub.model == model].sort_values(["accuracy", "class"]).head(n)  # ties broken by name
     fig, ax = plt.subplots(figsize=(6, 4))
     ax.barh(worst["class"], worst["accuracy"])
     ax.invert_yaxis()
+    ax.set_xlim(0, 1)
     ax.set_xlabel("zero-shot accuracy")
-    ax.set_title(f"{n} hardest Indian dishes ({model}, romanised Hindi name)")
+    ax.tick_params(axis="y", labelsize=7)
+    ax.set_title(f"{n} hardest Indian dishes ({model}, romanised Hindi name)", fontsize=9)
     fig.savefig(out / "worst_classes.pdf")
     plt.close(fig)
 
@@ -157,7 +164,7 @@ def main() -> None:
     if (fsh := _read(res / "fewshot.csv")) is not None:
         fig_fewshot_and_gap(fsh, zs, out, res)
     if (pc := _read(res / "zeroshot_per_class.csv")) is not None:
-        fig_worst_classes(pc, out)
+        fig_worst_classes(pc, zs, out)
     if (hist := _read(res / "cnn_history.csv")) is not None:
         fig_cnn(hist, out)
         cnn_sum, cnn_pc = _read(res / "cnn.csv"), _read(res / "cnn_per_class.csv")
