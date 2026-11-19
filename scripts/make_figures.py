@@ -112,16 +112,37 @@ def fig_worst_classes(pc: pd.DataFrame, out: Path, n: int = 20) -> None:
 
 
 def fig_cnn(hist: pd.DataFrame, out: Path) -> None:
-    run = hist["run"].iloc[-1]
-    h = hist[hist.run == run]
-    fig, ax = plt.subplots(figsize=(6, 3))
-    ax.plot(h.epoch, h.train_acc, label="train acc")
-    ax.plot(h.epoch, h.val_acc, label="val acc")
+    """Validation accuracy per epoch for every CNN run (train accuracy dashed)."""
+    fig, ax = plt.subplots(figsize=(6, 3.2))
+    for i, (run, h) in enumerate(hist.groupby("run", sort=False)):
+        colour = f"C{i}"
+        ax.plot(h.epoch, h.val_acc, color=colour, label=f"{run} (val)")
+        ax.plot(h.epoch, h.train_acc, color=colour, linestyle="--", alpha=0.5)
     ax.set_xlabel("epoch")
+    ax.set_ylabel("accuracy")
     ax.set_ylim(0, 1)
-    ax.legend()
-    ax.set_title(f"CNN from scratch (run: {run})")
+    ax.legend(fontsize=7, ncol=2)
+    ax.set_title("CNN from scratch: validation (solid) and train (dashed) accuracy")
     fig.savefig(out / "cnn_curves.pdf")
+    plt.close(fig)
+
+
+def fig_cnn_worst(summary: pd.DataFrame, per_class: pd.DataFrame, out: Path, n: int = 15) -> None:
+    """Hardest and easiest classes for the CNN run with the best test top-1."""
+    run = summary.loc[summary["top1"].idxmax(), "run"]
+    pc = per_class[per_class.run == run].sort_values("accuracy")
+    worst, best = pc.head(n), pc.tail(n)
+    fig, axes = plt.subplots(1, 2, figsize=(7, 3.8), sharex=True)
+    axes[0].barh(worst["class"], worst["accuracy"], color="C3")
+    axes[0].set_title(f"{n} hardest classes")
+    axes[1].barh(best["class"], best["accuracy"], color="C2")
+    axes[1].set_title(f"{n} easiest classes")
+    for ax in axes:
+        ax.set_xlabel("test accuracy")
+        ax.set_xlim(0, 1)
+        ax.tick_params(axis="y", labelsize=6)
+    fig.suptitle(f"CNN per-class accuracy (run: {run})", fontsize=9)
+    fig.savefig(out / "cnn_worst_classes.pdf")
     plt.close(fig)
 
 
@@ -139,6 +160,9 @@ def main() -> None:
         fig_worst_classes(pc, out)
     if (hist := _read(res / "cnn_history.csv")) is not None:
         fig_cnn(hist, out)
+        cnn_sum, cnn_pc = _read(res / "cnn.csv"), _read(res / "cnn_per_class.csv")
+        if cnn_sum is not None and cnn_pc is not None:
+            fig_cnn_worst(cnn_sum, cnn_pc, out)
     print(f"figures in {out}")
 
 
