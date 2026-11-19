@@ -1,18 +1,63 @@
 """End-to-end smoke run of the scripts on synthetic data (CPU, < 1 min).
 CLIP features are faked so open_clip is not needed."""
+import os
 import subprocess
 import sys
 
 import numpy as np
 import pandas as pd
-from conftest import ROOT
+from conftest import CLASSES, ROOT
 
 
-def run(script, *overrides):
+def run(script, *overrides, env=None):
     cmd = [sys.executable, str(ROOT / "scripts" / script), "--set", *overrides]
-    out = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
+    out = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", env=env)
     assert out.returncode == 0, out.stdout + out.stderr
     return out.stdout
+
+
+# Stand-in for open_clip: the text "embedding" of a prompt is the one-hot vector of the class whose
+# name (any language in data/class_names.csv) it contains, so it lines up with the fake image features.
+FAKE_OPEN_CLIP = '''
+import csv
+import torch
+
+_NAMES = {}
+with open(%r, encoding="utf-8") as f:
+    for row in csv.DictReader(f):
+        if row["folder"] in %r:
+            idx = sorted(%r).index(row["folder"])
+            for col in ("english", "hindi_roman", "hindi_devanagari"):
+                _NAMES[row[col]] = idx
+
+
+class _Model(torch.nn.Module):
+    def encode_text(self, tokens):
+        return tokens
+
+
+def create_model_and_transforms(name, pretrained=None, device=None):
+    return _Model(), None, None
+
+
+def get_tokenizer(name):
+    def tokenize(texts):
+        out = torch.full((len(texts), 32), 0.01)
+        for i, t in enumerate(texts):
+            for n, idx in _NAMES.items():
+                if n in t:
+                    out[i, idx] = 1.0
+        return out
+    return tokenize
+'''
+
+
+def fake_open_clip_env(tmp_path):
+    pkg = tmp_path / "fake_clip" / "open_clip"
+    pkg.mkdir(parents=True)
+    (pkg / "__init__.py").write_text(
+        FAKE_OPEN_CLIP % (str(ROOT / "data" / "class_names.csv"), CLASSES, CLASSES), encoding="utf-8")
+    return {**os.environ, "PYTHONPATH": str(pkg.parent)}
 
 
 def test_pipeline_end_to_end(fake_indian, tmp_path):
@@ -41,7 +86,19 @@ def test_pipeline_end_to_end(fake_indian, tmp_path):
     fs = pd.read_csv(tmp_path / "results" / "fewshot.csv")
     assert len(fs) == 5  # 2 seeds x 2 shot levels + 1 "all"
 
+    run("run_zeroshot.py", *o, env=fake_open_clip_env(tmp_path))
+    zs = pd.read_csv(tmp_path / "results" / "zeroshot.csv")
+    # 3 languages x 4 templates + hindi_native (Devanagari only); Food-101 skipped (no features)
+    assert len(zs) == 13 and set(zs.dataset) == {"indian"}
+    assert {"model", "pretrained", "language", "template", "top1", "top5", "macro_f1", "run_at"} <= set(zs.columns)
+    assert (zs.top1 > 0.9).all()  # class order, name lookup and scoring line up in every language
+    pc = pd.read_csv(tmp_path / "results" / "zeroshot_per_class.csv")
+    assert len(pc) == 13 * len(CLASSES)
+    assert (tmp_path / "results" / "zeroshot_confusions.csv").exists()
+
     run("make_figures.py", *o)
+    for fig in ("zeroshot_bias.pdf", "zeroshot_language.pdf", "worst_classes.pdf"):
+        assert (tmp_path / "fig" / fig).exists()
     assert (tmp_path / "fig" / "fewshot_curve.pdf").exists()
     assert (tmp_path / "fig" / "cnn_curves.pdf").exists()
     assert (tmp_path / "results" / "gap.csv").exists()
