@@ -221,7 +221,19 @@ metrics as for the CNN (top-1, top-5, macro-F1 and per-class accuracy; Section~\
 classification involves no training and no random sampling, so each setting is run once. All runs used OpenCLIP 2.26.1
 on a Tesla T4 GPU in Kaggle; the multilingual model needs a \texttt{transformers} version below 5.
 \subsection{Few-shot linear probe}  % Owner: WP4
-\todo{linear probe on frozen features; k in \{1,2,4,8,16,all\}; 3 seeds}
+To measure how many labelled images CLIP needs for Indian dishes, we train a linear classifier on top of frozen CLIP
+image features. The CLIP encoder is not updated, so only the classifier is learned. We use the same three CLIP models
+as in the zero-shot experiments (Section~\ref{sec:zs-method}). Features are L2-normalised. The classifier is a
+multinomial logistic regression with L2 regularisation. We set the inverse regularisation strength to $C=0.316$ and
+allow at most 3{,}000 optimisation iterations.
+
+For each number of shots $k \in \{1,2,4,8,16,\text{all}\}$ we draw $k$ training images at random from every class.
+The Indian training split has 2{,}254 images, with 19 to 34 per class, so ``all'' means the full split and $k=16$ is
+available for every class. The setting ``all'' uses every image of the training split. We repeat each value of $k$
+with 3 random seeds (0, 1 and 2). Since ``all'' involves no sampling, it is run once. The classifier is always
+evaluated on the same 1{,}187 Indian test images, using top-1 accuracy, top-5 accuracy and macro-F1, as for the CNN
+and the zero-shot experiments. We report the mean and standard deviation over the 3 seeds for $k \le 16$; ``all'' is a
+single run.
 
 \section{Results}
 \subsection{CNN baseline}          % results/cnn.csv, figures/cnn_curves.pdf
