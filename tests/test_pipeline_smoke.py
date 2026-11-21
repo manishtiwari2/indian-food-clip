@@ -6,6 +6,7 @@ import sys
 
 import numpy as np
 import pandas as pd
+import pytest
 from conftest import CLASSES, ROOT
 
 
@@ -84,7 +85,11 @@ def test_pipeline_end_to_end(fake_indian, tmp_path):
              relpath=split["relpath"].to_numpy(dtype=str))
     run("run_fewshot.py", *o, "fewshot.shots=[1,2,0]", "fewshot.seeds=[0,1]")
     fs = pd.read_csv(tmp_path / "results" / "fewshot.csv")
-    assert len(fs) == 5  # 2 seeds x 2 shot levels + 1 "all"
+    # 2 seeds x 2 shot levels + 1 "all" (balanced) + 1 extra unweighted "all" reference row
+    assert len(fs) == 6
+    assert fs["class_weight"].value_counts().to_dict() == {"balanced": 5, "none": 1}
+    extra = fs[fs.class_weight == "none"].iloc[0]
+    assert str(extra.shots) == "all" and extra.seed == 0
 
     run("run_zeroshot.py", *o, env=fake_open_clip_env(tmp_path))
     zs = pd.read_csv(tmp_path / "results" / "zeroshot.csv")
@@ -101,4 +106,11 @@ def test_pipeline_end_to_end(fake_indian, tmp_path):
         assert (tmp_path / "fig" / fig).exists()
     assert (tmp_path / "fig" / "fewshot_curve.pdf").exists()
     assert (tmp_path / "fig" / "cnn_curves.pdf").exists()
+    gap = pd.read_csv(tmp_path / "results" / "gap.csv")
+    balanced_all = fs[(fs.shots.astype(str) == "all") & (fs.class_weight == "balanced")].top1.mean()
+    assert gap["indian_all_shot_probe_top1"].iloc[0] == pytest.approx(balanced_all)  # extra row not used
+
+    # an old fewshot.csv without the class_weight column must still work
+    fs.drop(columns="class_weight").iloc[:5].to_csv(tmp_path / "results" / "fewshot.csv", index=False)
+    run("make_figures.py", *o)
     assert (tmp_path / "results" / "gap.csv").exists()

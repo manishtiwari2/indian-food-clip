@@ -62,7 +62,9 @@ def fig_language(zs: pd.DataFrame, out: Path) -> None:
 
 def fig_fewshot_and_gap(fsh: pd.DataFrame, zs: pd.DataFrame | None, out: Path, res: Path) -> None:
     fsh = fsh.copy()
-    n_all = fsh.loc[fsh.shots == "all", "n_train"].max()
+    if "class_weight" in fsh.columns and (fsh["class_weight"] == "balanced").any():
+        fsh = fsh[fsh["class_weight"] == "balanced"].copy()  # drop the extra unweighted "all" reference row
+    n_all =fsh.loc[fsh.shots == "all", "n_train"].max()
     fsh["k"] = fsh["shots"].map(lambda s: np.nan if s == "all" else int(s))
     fig, ax = plt.subplots(figsize=(6, 3.2))
     gap_rows = []

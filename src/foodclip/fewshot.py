@@ -23,9 +23,12 @@ def sample_k_shot(y: np.ndarray, k: int, seed: int) -> np.ndarray:
 
 
 def linear_probe(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, n_classes: int,
-                 C: float = 0.316, seed: int = 0) -> np.ndarray:
-    """Multinomial logistic regression; returns (n_test, n_classes) class probabilities."""
-    clf = LogisticRegression(C=C, max_iter=3000, random_state=seed)
+                 C: float = 0.316, seed: int = 0, class_weight: str | dict | None = None) -> np.ndarray:
+    """Multinomial logistic regression; returns (n_test, n_classes) class probabilities.
+
+    class_weight: None (default, no weights) or "balanced" (passed to sklearn; weight 1 for every class
+    when all classes have the same number of training images)."""
+    clf = LogisticRegression(C=C, max_iter=3000, random_state=seed, class_weight=class_weight)
     clf.fit(x_train, y_train)
     proba = np.zeros((len(x_test), n_classes), dtype=np.float32)
     proba[:, clf.classes_] = clf.predict_proba(x_test)
