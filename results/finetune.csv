@@ -1,0 +1,2 @@
+run,model,pretrained,language,template,epochs,lr,batch_size,seed,best_epoch,best_val_acc,n_train,n_test,top1,top5,macro_f1,run_at,torch,python,device
+vitb16,ViT-B-16,openai,hindi_roman,food,10,1e-05,32,42,7,0.7333333333333333,2029,1187,0.7396798652064027,0.9258635214827295,0.7264462439875915,2026-11-21T11:55:15,2.14.1+cu130,3.13.16,Tesla T4

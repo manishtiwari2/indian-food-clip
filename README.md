@@ -14,6 +14,7 @@ Hindi vs Devanagari) matter, and how many labelled images per class close the ga
 | CLIP image features (cached) | `scripts/extract_features.py` | `features/*.npz` (not committed) |
 | E2–E4 zero-shot, prompt language, bias | `scripts/run_zeroshot.py` | `results/zeroshot*.csv` |
 | E5 few-shot linear probe | `scripts/run_fewshot.py` | `results/fewshot.csv` |
+| E7 full fine-tune of ViT-B/16 (D13) | `scripts/finetune_clip.py` | `results/finetune*.csv` |
 | E6 gap + all figures | `scripts/make_figures.py` | `results/gap.csv`, `report/figures/*.pdf` |
 
 ## Quick start
@@ -37,10 +38,12 @@ Top-1 accuracy (%) on the 1,187 Indian test images, from `results/*.csv`. Food-1
 | CLIP zero-shot, best Indian setting (romanised Hindi) | 43.1 | 46.9 | 43.6 |
 | Linear probe, 16 shots per class (mean of 3 seeds) | 58.2 | 60.1 | 59.1 |
 | Linear probe, all 2,254 training images (balanced weights) | 61.5 | 63.9 | 62.1 |
+| Full fine-tune of the image encoder (2,029 train images, best of 10 epochs on val) | – | 74.0 | – |
 | *Food-101 zero-shot (`food` template)* | *85.6* | *90.0* | *82.6* |
 
-The CNN does not use CLIP, so it has one value. Even with all training images, the probe stays below
-Food-101 zero-shot for every model (`results/gap.csv`). Details: `results/cnn.csv`, `zeroshot.csv`, `fewshot.csv`.
+The CNN does not use CLIP, so it has one value. Fine-tuning was run for ViT-B/16 only. Even with all training images,
+the probe stays below Food-101 zero-shot for every model (`results/gap.csv`), and so does the fine-tuned ViT-B/16.
+Details: `results/cnn.csv`, `zeroshot.csv`, `fewshot.csv`, `finetune.csv`.
 
 ## Team
 Manish Tiwari · Aradhya Patel · Divyanshi Rathour · Anuradha Tiwari
