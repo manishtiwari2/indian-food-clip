@@ -227,7 +227,9 @@ To measure how many labelled images CLIP needs for Indian dishes, we train a lin
 image features. The CLIP encoder is not updated, so only the classifier is learned. We use the same three CLIP models
 as in the zero-shot experiments (Section~\ref{sec:zs-method}). Features are L2-normalised. The classifier is a
 multinomial logistic regression with L2 regularisation. We set the inverse regularisation strength to $C=0.316$ and
-allow at most 3{,}000 optimisation iterations.
+allow at most 3{,}000 optimisation iterations. The probe uses class-balanced weights, because the training classes
+are uneven (19 to 34 images). We chose this after a first run without weights, that is, after looking at test
+accuracy, so it is a post-hoc choice.
 
 For each number of shots $k \in \{1,2,4,8,16,\text{all}\}$ we draw $k$ training images at random from every class.
 The Indian training split has 2{,}254 images, with 19 to 34 per class, so ``all'' means the full split and $k=16$ is
