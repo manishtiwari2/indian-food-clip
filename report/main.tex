@@ -32,19 +32,7 @@ Team 11 (P11), \todo{department, institution}}
 
 \begin{abstract}
 % Owner: WP4. Write last. 150-200 words: question, data, three methods, main numbers, conclusion.
-% DRAFT written with Claude, owner must rewrite in own words. Numbers from results/zeroshot.csv, results/cnn.csv,
-% results/fewshot.csv and results/gap.csv.
-Can a vision-language model recognise Indian dishes that it rarely saw during training, and how many labelled
-images does it need? We study this with CLIP on a cleaned 80-class Indian food dataset (2{,}254 training and
-1{,}187 test images) and on a size-matched set of 80 Food-101 classes. We compare three methods: a small CNN
-trained from scratch, CLIP zero-shot classification with prompts in English, romanised Hindi and Devanagari, and a
-linear probe on frozen CLIP features trained with 1 to 16 labelled images per class or with all training images.
-Three CLIP models are tested. The best CNN run reaches 26.4\% top-1 accuracy. Zero-shot CLIP reaches
-43.1--46.9\% on Indian dishes, but 82.6--90.0\% on Food-101 with the same template. Romanised dish names work
-better than English descriptions, and Devanagari names are close to random guessing for the OpenAI models. A
-linear probe passes the zero-shot result from 8 images per class and reaches 61.5--63.9\% with all training
-images, but it does not reach the Food-101 zero-shot level. The class weights of the probe were chosen after we had
-seen test results, and part of the gap may come from differences between the two datasets.
+Can CLIP recognise Indian dishes that it has rarely seen during training, and how many labelled images does it need? We study this with a cleaned dataset of 80 Indian food classes (2{,}254 training images and 1{,}187 test images), together with 80 classes from Food-101. We compare a small CNN trained from scratch, CLIP zero-shot classification with English, Romanised Hindi, and Devanagari prompts, and a linear probe trained on frozen CLIP features with 1 to 16 labelled images per class or with all training images. Zero-shot CLIP gets 43.1--46.9\% top-1 accuracy on Indian dishes, compared to 82.6--90.0\% on Food-101. The best CNN run gets 26.4\% [CHECK]. The linear probe beats the zero-shot result with 8 images per class and reaches 61.5--63.9\% accuracy with all training images, but it still does not reach the Food-101 zero-shot level. The class weights for the probe were chosen after seeing the test results, and part of the gap may be due to differences between the two datasets.
 \end{abstract}
 
 \noindent\textbf{Key Words:} CLIP, zero-shot learning, few-shot learning, food recognition, dataset bias, Indian cuisine.
@@ -82,9 +70,7 @@ with English, romanised Hindi and Devanagari names for every class; (ii) a size-
 of 80 Food-101 classes; (iii) a controlled comparison of a CNN baseline, CLIP zero-shot with several
 prompt templates and languages, and few-shot linear probes; and (iv) open code and splits so that
 every number in this report can be reproduced.
-% DRAFT written with Claude, owner must rewrite in own words. Numbers from results/gap.csv and results/fewshot.csv.
-In short, zero-shot CLIP reaches 43.1--46.9\% top-1 on Indian dishes against 82.6--90.0\% on Food-101, and a linear
-probe with all training images reaches 61.5--63.9\%, which is still below the Food-101 zero-shot level.
+Zero-shot CLIP gets only 43.1--46.9\% top-1 accuracy on Indian dishes, compared to 82.6--90.0\% on Food-101. Even after training a linear probe on all our training images, accuracy reaches only 61.5--63.9\%, which is still lower than the zero-shot accuracy on Food-101.
 
 \section{Related Work}
 \paragraph{CLIP and zero-shot recognition.} CLIP~\cite{radford2021clip} learns image and text features together. During training, it learns to place matching images and captions close to each other in the feature space. This allows it to classify images without training on the target classes directly. For zero-shot classification, class names are placed in a prompt such as ``a photo of pizza''. CLIP compares the image with these text prompts and selects the closest match. OpenCLIP~\cite{cherti2023openclip} is an open implementation of CLIP trained with public datasets. It also includes multilingual models, including models trained using LAION-5B~\cite{schuhmann2022laion5b}. These models are used in our zero-shot and few-shot experiments.
@@ -236,22 +222,15 @@ metrics as for the CNN (top-1, top-5, macro-F1 and per-class accuracy; Section~\
 classification involves no training and no random sampling, so each setting is run once. All runs used OpenCLIP 2.26.1
 on a Tesla T4 GPU in Kaggle; the multilingual model needs a \texttt{transformers} version below 5.
 \subsection{Few-shot linear probe}  % Owner: WP4
-% DRAFT written with Claude from the code (src/foodclip/fewshot.py, configs/default.yaml). Owner (WP4) must rewrite
-% in own words before submission.
-To measure how many labelled images CLIP needs for Indian dishes, we train a linear classifier on top of frozen CLIP
-image features. The CLIP encoder is not updated, so only the classifier is learned. We use the same three CLIP models
-as in the zero-shot experiments (Section~\ref{sec:zs-method}). Features are L2-normalised. The classifier is a
-multinomial logistic regression with L2 regularisation. We set the inverse regularisation strength to $C=0.316$ and
-allow at most 3{,}000 optimisation iterations. The probe uses class-balanced weights, because the training classes
-are uneven (19 to 34 images). We chose this after a first run without weights, that is, after looking at test
-accuracy, so it is a post-hoc choice.
+To find out how many labelled images CLIP needs to recognise Indian dishes, we train a linear classifier on CLIP image features. The CLIP encoder is frozen, which means its weights are not updated. Only the classifier is trained. We use the same three CLIP models as in the zero-shot experiments (Section~\ref{sec:zs-method}). The image features are normalised using L2 normalisation.
 
-For each number of shots $k \in \{1,2,4,8,16,\text{all}\}$ we draw $k$ training images at random from every class.
-The Indian training split has 2{,}254 images, with 19 to 34 per class, so ``all'' means the full split and $k=16$ is
-available for every class. We repeat each value of $k$ with 3 random seeds (0, 1 and 2). The classifier is always
-evaluated on the same 1{,}187 Indian test images, using top-1 accuracy, top-5 accuracy and macro-F1, as for the CNN
-and the zero-shot experiments. We report the mean and standard deviation over the 3 seeds for $k \le 16$; ``all'' is a
-single run.
+The classifier is a multinomial logistic regression with L2 regularisation. The inverse regularisation strength is $C=0.316$, and the maximum number of iterations is 3{,}000. The number of training images is not the same in every class (from 19 to 34 images), so we use class-balanced weights. We chose this after a first run without weights and after looking at the test accuracy. So it is a post-hoc choice.
+
+For each number of shots $k \in \{1, 2, 4, 8, 16\}$, we randomly pick $k$ training images from every class. We repeat this with 3 random seeds (0, 1, and 2). In the ``all'' setting, we use the full training split of 2{,}254 images. No sampling is needed here, so we run it only once.
+
+For $k \le 16$, every class has exactly $k$ images, so all the balanced weights are equal to 1. This means these runs do not depend on the weighting. For comparison, we also run one unweighted ``all'' setting for each model.
+
+We always test the classifier on the same 1{,}187 Indian test images. We measure top-1 accuracy, top-5 accuracy, and macro-F1, the same as in the CNN and zero-shot experiments. For $k \le 16$, we report the mean and standard deviation over the 3 seeds. The ``all'' setting is a single run, so it has no standard deviation.
 
 \section{Results}
 \subsection{CNN baseline}          % results/cnn.csv, figures/cnn_curves.pdf
@@ -426,13 +405,7 @@ scraped from the web and contain label noise (Section~\ref{sec:dataset}), and th
 very similar sweets, while the Food-101 test images were checked by hand. These differences probably make the Indian
 task harder, so the gap is likely to overstate the effect of cuisine alone.
 \subsection{How many shots close the gap?}  % results/fewshot.csv, results/gap.csv, figures/fewshot_curve.pdf
-% DRAFT written with Claude, owner must rewrite in own words. Every number is from results/fewshot.csv and
-% results/gap.csv (run of 2026-11-21); the zero-shot values in the table are from results/zeroshot.csv.
-Table~\ref{tab:fewshot} and Figure~\ref{fig:fewshot} show the top-1 accuracy of the linear probe on the Indian test
-set. Accuracy rises with every step in the number of labelled images. With one image per class the probe reaches
-25.4\% (ViT-B/32), 27.7\% (ViT-B/16) and 23.1\% (multilingual model); with 16 images it reaches 58.2\%, 60.1\% and
-59.1\%. Top-5 accuracy and macro-F1 rise in the same way (\texttt{results/fewshot.csv}). The standard deviation over
-the three seeds is at most 2.3 points in every setting.
+Accuracy goes up as we add more labelled images. With one image per class, the probe gets 25.4\% (ViT-B/32), 27.7\% (ViT-B/16), and 23.1\% (multilingual model). With 16 images per class, it reaches 58.2\%, 60.1\%, and 59.1\%, respectively.
 
 \begin{table}[t]
 \centering
@@ -470,30 +443,13 @@ top-1. The ``all'' point uses class-balanced weights.}
 \label{fig:fewshot}
 \end{figure}
 
-\paragraph{Few-shot against zero-shot.} The probe beats the best zero-shot result on Indian dishes from $k=8$ on, for
-all three models. At $k=8$ it is ahead by 8.5, 7.2 and 8.3 points (ViT-B/32, ViT-B/16, multilingual model), and every
-single seed is above the zero-shot value. At $k=4$ it is still slightly behind: 43.0\% against 43.1\%, 46.4\% against
-46.9\% and 43.0\% against 43.6\%. The ``best zero-shot'' value is the highest over all prompt languages and templates
-(Section~\ref{sec:zs-results}), picked on the same test set, so it favours zero-shot.
+For all three models, the probe beats the best zero-shot result on Indian dishes from 8 images per class. With 4 images per class, it is still slightly lower than zero-shot (for example, 43.0\% compared to 43.1\% for ViT-B/32). The best zero-shot value is the highest result over all prompt languages and templates, and we picked it using the test set. This makes the comparison favourable to zero-shot.
 
-\paragraph{The Western level is not reached.} Neither up to 16 shots nor all 2{,}254 training images bring the
-probe to the Food-101 zero-shot level. With all images, ViT-B/32 reaches 61.5\% against 85.6\% on Food-101, ViT-B/16
-reaches 63.9\% against 90.0\%, and the multilingual model reaches 62.1\% against 82.6\%. The remaining gaps are 24.1,
-26.2 and 20.5 points. In \texttt{results/gap.csv}, \texttt{shots\_to\_reach\_western} is therefore ``not reached''
-for all three models.
+The probe does not reach the Food-101 zero-shot accuracy, even with 16 images per class or with all 2{,}254 training images. With all training images, the probe gets 61.5\%, 63.9\%, and 62.1\%, while the same models get 85.6\%, 90.0\%, and 82.6\% on Food-101.
 
-\paragraph{Class weights.} The ``all'' rows use class-balanced weights. We added them after a first run without
-weights, in which ``all'' was lower than 16 shots for all three models (52.4\%, 57.2\% and 57.0\% against 58.2\%,
-60.1\% and 59.1\%). With balanced weights, ``all'' is higher than 16 shots for all three models. For 1 to 16 shots
-every class has the same number of images, so the weights are all 1 and these rows are the same with or without
-weights. The weight choice is post-hoc: it was made after the test results were seen, and the project lead approved
-it (decision D12 in the repository).
+The ``all'' setting uses class-balanced weights. We added them after a first run without weights, where the ``all'' setting was worse than 16 images per class for every model (52.4\%, 57.2\%, and 57.0\%). We made this choice after looking at the test results, so it is post-hoc. For 1 to 16 images per class, every class has the same number of images, so all weights are equal to 1.
 
-\paragraph{Limits.} The Western level is not a pure comparison of cuisines: the Food-101 subset also contains Asian
-dishes, and the two datasets are built differently, with scraped and partly mislabelled Indian images and
-hand-checked Food-101 test images (Section~\ref{sec:bias}). The Western value is also a zero-shot result, while the
-probe is trained on labelled images. The ``all'' results are single runs, and with 1{,}187 test images differences of
-about one point should not be over-interpreted.
+The comparison with Food-101 is not fully fair. The Food-101 subset also contains Asian dishes, and the two datasets were created in different ways (Section~\ref{sec:bias}). The test set has 1{,}187 images, so differences of about one percentage point should not be taken as meaningful.
 
 \section{Discussion and Limitations}\label{sec:limits}
 % WP1 note: mention the 52 cross-class copies / 17 chicken tikka masala photos (Section 3) here.
@@ -501,18 +457,7 @@ about one point should not be over-interpreted.
 \todo{discussion}
 
 \section{Conclusion}               % Owner: WP4
-% DRAFT written with Claude, owner must rewrite in own words. Numbers from results/zeroshot.csv, results/cnn.csv,
-% results/fewshot.csv and results/gap.csv.
-CLIP recognises Indian dishes much better than a small CNN trained from scratch, even without seeing a labelled
-Indian image: the best zero-shot result per model is 43.1--46.9\% top-1, while the best CNN run reaches 26.4\%. This
-is still far below the same models on 80 Food-101 classes (82.6--90.0\%). The way a dish is written matters:
-romanised Hindi names work better than English descriptions (46.9\% against 36.7\% for ViT-B/16), while Devanagari
-names are close to random guessing for the OpenAI models (at most 3.0\%). A linear probe on frozen CLIP features
-passes the best zero-shot result from 8 labelled images per class (51.6--54.2\%) and reaches 61.5--63.9\% with all
-2{,}254 training images. Even so, the Food-101 zero-shot level is not reached with up to 16 shots or with all
-training images, so more labelled data alone did not close the gap in our experiments. Part of the gap may come from
-the datasets themselves, since the Indian images are scraped and partly mislabelled and the Food-101 subset is not
-purely Western, and our conclusions rest on one test set and a class-weight choice made after seeing test results.
+Zero-shot CLIP recognises Indian dishes much better than a small CNN trained from scratch. The best zero-shot accuracy for each model is 43.1--46.9\% top-1, while the best CNN run reaches 26.4\% [CHECK]. However, this is still far below the accuracy of the same models on Food-101 (82.6--90.0\%). For ViT-B/16, Romanised Hindi dish names work better than English descriptions, with 46.9\% compared to 36.7\% [CHECK]. A linear probe beats the best zero-shot result with 8 images per class, and reaches 61.5--63.9\% accuracy with all training images. Even then, it does not reach the zero-shot accuracy on Food-101. So, in our experiments, adding labelled data alone was not enough to close the gap. These results come from a single test set, the datasets were created in different ways, and the class weights were chosen after seeing the test results.
 
 \section*{Code availability}
 Code, data splits and result files: \url{https://github.com/manishtiwari2/indian-food-clip}.
