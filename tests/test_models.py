@@ -46,6 +46,45 @@ def test_linear_probe_and_zero_shot_on_separable_features():
     assert topk_accuracy(zero_shot_scores(x, centers), y, 1) > 0.95
 
 
+def test_class_weight_reaches_logistic_regression(monkeypatch):
+    seen = []
+
+    class Spy:
+        def __init__(self, **kw):
+            seen.append(kw)
+            self.classes_ = np.arange(2)
+
+        def fit(self, x, y):
+            return self
+
+        def predict_proba(self, x):
+            return np.full((len(x), 2), 0.5)
+
+    monkeypatch.setattr("foodclip.fewshot.LogisticRegression", Spy)
+    x, y = np.zeros((4, 3)), np.array([0, 0, 1, 1])
+    linear_probe(x, y, x, n_classes=2)
+    linear_probe(x, y, x, n_classes=2, class_weight="balanced")
+    assert seen[0]["class_weight"] is None and seen[1]["class_weight"] == "balanced"  # default = old behaviour
+    assert seen[0]["C"] == 0.316 and seen[0]["max_iter"] == 3000
+
+
+def test_balanced_weights_do_nothing_when_classes_are_equal_and_matter_when_not():
+    rng = np.random.default_rng(1)
+    y = np.repeat(np.arange(4), 16)  # exactly k=16 images per class, like the k-shot rows
+    x = np.eye(4, 8)[y] + 0.5 * rng.standard_normal((64, 8))
+    plain = linear_probe(x, y, x, n_classes=4)
+    assert np.array_equal(plain, linear_probe(x, y, x, n_classes=4, class_weight="balanced"))
+    keep = np.r_[np.arange(16), np.arange(16, 32), np.arange(32, 48), np.arange(48, 54)]  # last class uneven
+    a = linear_probe(x[keep], y[keep], x, n_classes=4)
+    b = linear_probe(x[keep], y[keep], x, n_classes=4, class_weight="balanced")
+    assert not np.array_equal(a, b)
+
+
+def test_fewshot_class_weight_in_config():
+    assert load_config()["fewshot"]["class_weight"] == "balanced"
+    assert load_config(overrides=["fewshot.class_weight=null"])["fewshot"]["class_weight"] is None
+
+
 def test_prompts():
     p = build_prompts(["poha", "jalebi"], "ensemble")
     assert len(p) == 2 and len(p[0]) == len(TEMPLATES["ensemble"]) and "poha" in p[0][0]

@@ -46,3 +46,4 @@ fewshot:
   shots: [1, 2, 4, 8, 16, 0]         # 0 = all training images
   seeds: [0, 1, 2]
   C: 0.316                           # inverse L2 strength for logistic regression
+  class_weight: balanced             # balanced or null (null = no weights, the old behaviour; see D12)
