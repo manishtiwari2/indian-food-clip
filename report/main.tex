@@ -40,37 +40,35 @@ Can CLIP recognise Indian dishes that it has rarely seen during training, and ho
 \section{Introduction}
 % Owner: WP1. Motivation: vision-language models are trained on mostly Western, English web data.
 % Do they recognise Indian dishes (poha, dhokla, ...)? Research questions RQ1-RQ3. Contributions list.
-% DRAFT written with Claude from the committed CSVs. Owner (WP1) must rewrite in own words before submission.
-Vision-language models such as CLIP~\cite{radford2021clip} learn to match images with text from
-hundreds of millions of image--caption pairs collected from the web. Because they compare an image
-with a written class name, they can classify images into categories they were never explicitly trained
-on (zero-shot classification). However, web data is not evenly spread across cultures and languages:
-most captions are in English and describe content that is common online. A dish such as \emph{poha}
-or \emph{sohan papdi} may appear far less often, and under many spellings, than \emph{pizza} or
-\emph{apple pie}. It is therefore unclear how well such a model serves users whose everyday food is
-under-represented in its training data.
+% Rewritten by Claude for the team; owner must give a final check.
+CLIP~\cite{radford2021clip} and similar vision-language models are trained on hundreds of millions of
+image--caption pairs from the web, and they learn to match each image with its text. At test time they compare an
+image with a written class name. This lets them sort images into classes they were never trained on, which is
+called zero-shot classification. Web data, however, is uneven across cultures and languages. Most captions are in
+English and show content that is popular online. A dish such as \emph{poha} or \emph{sohan papdi} probably appears
+much less often than \emph{pizza} or \emph{apple pie}, and under many spellings. So it is not clear how well such a
+model works for people whose daily food is rare in its training data.
 
-Food recognition is a useful test of this question. Dishes are visually fine-grained, many Indian
-dishes look alike (several fried sweets in syrup, many curries in a similar gravy), and their names
-are usually Hindi or regional words rather than English. We study 80 Indian dishes and ask three
-research questions:
+Food recognition is a good way to test this. Dishes differ in fine visual detail, and many Indian dishes look alike:
+several are fried sweets in syrup, and many are curries in a similar gravy. Their names are also usually Hindi or
+regional words, not English. We study 80 Indian dishes and ask three research questions:
 \begin{itemize}
-  \item \textbf{RQ1.} How accurate is CLIP zero-shot on Indian dishes, compared with a CNN trained
-        from scratch on the same small dataset?
-  \item \textbf{RQ2.} Does the language of the class name matter: an English description
-        (``spiced flattened rice''), the romanised Hindi name (``poha''), or the same name written
-        in Devanagari script? Does a multilingual text encoder help?
-  \item \textbf{RQ3.} How large is the gap between zero-shot accuracy on Indian food and on Western
-        food (Food-101~\cite{bossard2014food101}), and how many labelled images per class does a
-        linear probe on CLIP features need to close it?
+  \item \textbf{RQ1.} On Indian dishes, how accurate is CLIP zero-shot compared with a CNN trained from scratch on
+        the same small dataset?
+  \item \textbf{RQ2.} Does the language of the class name matter? We compare an English description
+        (``spiced flattened rice''), the romanised Hindi name (``poha''), and the same name in Devanagari script.
+        Does a multilingual text encoder help?
+  \item \textbf{RQ3.} How big is the gap between zero-shot accuracy on Indian food and on Western food
+        (Food-101~\cite{bossard2014food101})? How many labelled images per class does a linear probe on CLIP
+        features need to close it?
 \end{itemize}
 
-Our contributions are: (i) a cleaned and de-duplicated split of a public 80-class Indian food dataset,
-with English, romanised Hindi and Devanagari names for every class; (ii) a size-matched comparison set
-of 80 Food-101 classes; (iii) a controlled comparison of a CNN baseline, CLIP zero-shot with several
-prompt templates and languages, few-shot linear probes, and a full fine-tune of one CLIP encoder; and (iv) open code and splits so that
+We make four contributions: (i) a cleaned, de-duplicated split of a public 80-class Indian food dataset, with
+English, romanised Hindi and Devanagari names for each class; (ii) a comparison set of 80 Food-101 classes of the
+same size; (iii) a controlled comparison of a CNN baseline, CLIP zero-shot with several prompt templates and
+languages, few-shot linear probes, and a full fine-tune of one CLIP encoder; and (iv) open code and splits, so that
 every number in this report can be reproduced.
-Zero-shot CLIP gets only 43.1--46.9\% top-1 accuracy on Indian dishes, compared to 82.6--90.0\% on Food-101. Even after training a linear probe on all our training images, accuracy reaches only 61.5--63.9\%, which is still lower than the zero-shot accuracy on Food-101. Fine-tuning the whole ViT-B/16 encoder reaches 74.0\%, which is also still below.
+On Indian dishes, zero-shot CLIP reaches only 43.1--46.9\% top-1 accuracy, against 82.6--90.0\% on Food-101. A linear probe trained on all our training images reaches only 61.5--63.9\%, which is still below the Food-101 zero-shot accuracy. Fine-tuning the whole ViT-B/16 encoder gives 74.0\%, which is also still below it.
 
 \section{Related Work}
 \paragraph{CLIP and zero-shot recognition.} CLIP~\cite{radford2021clip} learns image and text features together. During training, it learns to place matching images and captions close to each other in the feature space. This allows it to classify images without training on the target classes directly. For zero-shot classification, class names are placed in a prompt such as ``a photo of pizza''. CLIP compares the image with these text prompts and selects the closest match. OpenCLIP~\cite{cherti2023openclip} is an open implementation of CLIP trained with public datasets. It also includes multilingual models, including models trained using LAION-5B~\cite{schuhmann2022laion5b}. These models are used in our zero-shot and few-shot experiments.
@@ -85,22 +83,21 @@ Zero-shot CLIP gets only 43.1--46.9\% top-1 accuracy on Indian dishes, compared 
 % Owner: WP1. Source + licence note (Google-scraped, academic use). Cleaning: corrupt + perceptual-hash
 % duplicates removed (counts from splits/indian_removed.csv). Split table. Food-101 subset (80 x 50).
 % Class names: English description, romanised Hindi, Devanagari (data/class_names.csv).
-% DRAFT written with Claude. Every number comes from splits/*.csv (Kaggle run p11-wp1-data-prep v2,
-% code commit 70ec518). Owner (WP1) must rewrite in own words before submission.
-\paragraph{Indian dishes.} We use the Kaggle \emph{Indian Food Images Dataset}~\cite{banerjee2022indianfood},
-which contains 4{,}000 images of 80 dishes (50 per class) collected from web image search. The
-dataset gives no licence beyond academic use and no official train/test split. Because the images were
-scraped, the same photo often appears more than once. We removed near-duplicates with a 64-bit
-perceptual hash: two images whose hashes differ in at most 4 bits are treated as copies and only the
-first is kept. A visual check of 26 randomly sampled removed pairs found that all of them were true
-copies (identical or re-compressed versions of the same photo). When a copy appeared in a
-\emph{different} class, its label is unreliable, so both copies were removed. No file was corrupt.
+% Rewritten by Claude for the team; owner must give a final check.
+% Numbers from splits/*.csv (Kaggle run p11-wp1-data-prep v2, code commit 70ec518).
+\paragraph{Indian dishes.} Our Indian data is the Kaggle \emph{Indian Food Images Dataset}~\cite{banerjee2022indianfood}.
+It has 4{,}000 images of 80 dishes, 50 per class, collected through web image search. It has no licence beyond
+academic use and no official train/test split. Because the images were scraped, the same photo is often present more
+than once. To remove near-duplicates we used a 64-bit perceptual hash. If the hashes of two images differ in 4 bits or
+fewer, we treat them as copies and keep only the first. We checked 26 randomly sampled removed pairs by eye, and all of
+them were true copies (the same photo, identical or re-compressed). If a copy was in a \emph{different} class, its label
+cannot be trusted, so we removed both copies. No file was corrupt.
 
-Table~\ref{tab:data} summarises the result. Of the 4{,}000 images, 559 were removed: 507 within-class
-duplicates and 52 images whose copy was filed under another dish. The remaining 3{,}441 images
-(27--49 per class, median 44) were split per class with a fixed seed into 15 test images and the rest
-for training. Two classes with fewer than 30 images keep 30\% for testing instead
-(chicken\_tikka: 9, chicken\_tikka\_masala: 8 test images). Train and test sets share no image.
+Table~\ref{tab:data} gives the result. We removed 559 of the 4{,}000 images: 507 duplicates within a class and 52
+images whose copy was filed under another dish. This leaves 3{,}441 images (27--49 per class, median 44). We split each
+class with a fixed seed into 15 test images and use the rest for training. Two classes have fewer than 30 images, so
+30\% of their images go to the test set instead (chicken\_tikka: 9, chicken\_tikka\_masala: 8 test images). No image
+is in both the train and the test set.
 
 \begin{table}[h]
 \centering
@@ -121,23 +118,20 @@ Images per class & 27--49 (median 44) & 50 \\
 \label{tab:data}
 \end{table}
 
-\paragraph{Western dishes.} For the bias comparison we use Food-101~\cite{bossard2014food101}.
-To match the Indian set in size, we randomly select (seed 42) 80 of its 101 classes and 50 images per
-class from its official test split, giving 4{,}000 images. These are used only for zero-shot
-evaluation, so no Food-101 training images are needed.
+\paragraph{Western dishes.} The bias comparison uses Food-101~\cite{bossard2014food101}. To match the size of the
+Indian set, we randomly choose (seed 42) 80 of its 101 classes and take 50 images per class from its official test
+split, 4{,}000 images in total. We use them only for zero-shot evaluation, so we need no Food-101 training images.
 
-\paragraph{Class names.} Each Indian class has three names, used as prompt text in our experiments:
-an English description of the dish (e.g.\ ``spiced flattened rice''), the dish name in Latin script
-as it is commonly written (``poha''), and the same name in Devanagari. The Hindi names were written by
-the team and checked by a native speaker.
+\paragraph{Class names.} Every Indian class has three names, which we use as prompt text: an English description of
+the dish (e.g.\ ``spiced flattened rice''), the dish name in Latin script as people usually write it (``poha''), and
+the same name in Devanagari. The team wrote the Hindi names and a native speaker checked them.
 
-\paragraph{Label noise.} The de-duplication step exposed label noise in the source data. The largest
-case is 17 photos that appear in both the \emph{chicken tikka} and \emph{chicken tikka masala}
-folders; on inspection they show chicken in a curry gravy, i.e.\ tikka masala. These photos are now
-excluded from both classes, which leaves these two classes with the fewest images (29 and 27). Other
-cross-class copies involve visually similar sweets (e.g.\ adhirasam/ariselu, rabri with basundi,
-ghevar and gulab jamun). Some mislabelled images that are not duplicates likely remain; we discuss
-this in Section~\ref{sec:limits}.
+\paragraph{Label noise.} De-duplication also revealed label noise in the source data. The biggest case is 17 photos
+found in both the \emph{chicken tikka} and \emph{chicken tikka masala} folders. When we looked at them, they showed
+chicken in a curry gravy, i.e.\ tikka masala. We now exclude these photos from both classes, so these two classes have
+the fewest images (29 and 27). Other copies across classes involve sweets that look alike (e.g.\ adhirasam/ariselu,
+rabri with basundi, ghevar and gulab jamun). Some wrong labels that are not duplicates probably remain; we discuss this
+in Section~\ref{sec:limits}.
 
 \section{Methods}
 \subsection{CNN from scratch}\label{sec:cnn-method}      % Owner: WP2
@@ -173,30 +167,31 @@ Random seed & 42 \\
 \paragraph{Metrics.} We evaluated the models using top-1 accuracy, top-5 accuracy, and macro-F1 on the test set. Top-1 accuracy is the fraction of images for which the highest-scoring class is correct. Top-5 accuracy is the fraction for which the correct class appears among the five highest-scoring classes. Macro-F1 is calculated by finding the F1 score for each of the 80 classes and taking their average, so all classes have equal weight. We also report per-class accuracy.
 
 \subsection{CLIP zero-shot and prompt engineering}\label{sec:zs-method}   % Owner: WP3
-% DRAFT written with Claude from the code (scripts/run_zeroshot.py, src/foodclip/prompts.py) and the committed
-% results/zeroshot*.csv (Kaggle run 2026-11-19, Tesla T4). Owner (WP3) must rewrite in own words before submission.
-In zero-shot classification, CLIP is used as it is, without any training on our images. The image encoder turns each
-test image into a feature vector, and the text encoder turns a short sentence for each class (a \emph{prompt}) into a
-feature vector of the same size. Both vectors are normalised to unit length, so their dot product is the cosine
-similarity. The score of a class is this similarity (multiplied by 100, as in CLIP~\cite{radford2021clip}), and the
-predicted class is the one with the highest score. When a class has several prompts, we average their normalised text
-features and normalise the result again (prompt ensembling~\cite{radford2021clip}).
+% Rewritten by Claude for the team; owner must give a final check.
+% Sources: scripts/run_zeroshot.py, src/foodclip/prompts.py, results/zeroshot*.csv (Kaggle run 2026-11-19, Tesla T4).
+In zero-shot classification we use CLIP as it is and do not train it on our images. The image encoder maps each test
+image to a feature vector. The text encoder maps a short sentence for each class (a \emph{prompt}) to a feature vector
+of the same size. We normalise both vectors to unit length, so their dot product equals the cosine similarity. The
+score of a class is this similarity times 100, as in CLIP~\cite{radford2021clip}, and the class with the highest score
+is the prediction. If a class has several prompts, we average their normalised text features and normalise the average
+again (prompt ensembling~\cite{radford2021clip}).
 
-\paragraph{Models.} We use three models from OpenCLIP~\cite{cherti2023openclip}: the OpenAI ViT-B/32 and ViT-B/16
-models~\cite{radford2021clip}, and a multilingual model that combines a ViT-B/32 image encoder with an XLM-RoBERTa-base
-text encoder, trained on LAION-5B~\cite{schuhmann2022laion5b} (OpenCLIP tag \texttt{laion5b\_s13b\_b90k}). The
-OpenAI text encoder uses a tokenizer built for English text, while the multilingual text encoder is designed to read
-many languages, including Hindi. Each model uses its own OpenCLIP image preprocessing. Image features are computed once
-per model and cached, so all prompt variants are scored on exactly the same image features.
+\paragraph{Models.} We take three models from OpenCLIP~\cite{cherti2023openclip}. Two are the OpenAI ViT-B/32 and
+ViT-B/16 models~\cite{radford2021clip}. The third is a multilingual model with a ViT-B/32 image encoder and an
+XLM-RoBERTa-base text encoder, trained on LAION-5B~\cite{schuhmann2022laion5b} (OpenCLIP tag
+\texttt{laion5b\_s13b\_b90k}). The OpenAI text encoder has a tokenizer made for English text, while the multilingual
+text encoder is made to read many languages, Hindi among them. Each model uses its own OpenCLIP image preprocessing. We
+compute the image features once per model and cache them, so every prompt variant is scored on exactly the same image
+features.
 
-\paragraph{Class names.} Every Indian class has three names (Section~\ref{sec:dataset}): an English description
-(``spiced flattened rice''), the dish name in Latin script (``poha''), and the same name in Devanagari script. For
-Food-101 we use the official class name with underscores replaced by spaces (``apple pie'').
+\paragraph{Class names.} As described in Section~\ref{sec:dataset}, each Indian class has three names: an English
+description (``spiced flattened rice''), the dish name in Latin script (``poha''), and the same name in Devanagari
+script. For Food-101 we take the official class name and replace underscores with spaces (``apple pie'').
 
-\paragraph{Prompt templates.} Table~\ref{tab:templates} lists the five templates. The \emph{food} template is used for
-both datasets, so it is the basis of the Indian-vs-Western comparison. Food-101 is evaluated only with \emph{plain} and
-\emph{food}, because the other templates mention Indian food. The \emph{hindi native} template is a full Hindi sentence
-and is only combined with Devanagari names.
+\paragraph{Prompt templates.} The five templates are listed in Table~\ref{tab:templates}. We use the \emph{food}
+template for both datasets, so the Indian-vs-Western comparison is based on it. Since the other templates mention
+Indian food, Food-101 is evaluated only with \emph{plain} and \emph{food}. The \emph{hindi native} template is a
+complete Hindi sentence, and we combine it only with Devanagari names.
 
 \begin{table}[t]
 \centering
@@ -217,10 +212,10 @@ hindi native & 2 Hindi sentences in Devanagari (``a picture of \{\}'', ``\{\}, a
 \label{tab:templates}
 \end{table}
 
-\paragraph{Evaluation.} We evaluate on the 1{,}187 Indian test images and on the 4{,}000 Food-101 images, using the same
-metrics as for the CNN (top-1, top-5, macro-F1 and per-class accuracy; Section~\ref{sec:cnn-method}). Zero-shot
-classification involves no training and no random sampling, so each setting is run once. All runs used OpenCLIP 2.26.1
-on a Tesla T4 GPU in Kaggle; the multilingual model needs a \texttt{transformers} version below 5.
+\paragraph{Evaluation.} The test data are the 1{,}187 Indian test images and the 4{,}000 Food-101 images. We use the
+same metrics as for the CNN: top-1, top-5, macro-F1 and per-class accuracy (Section~\ref{sec:cnn-method}). Zero-shot
+classification has no training and no random sampling, so we run each setting once. Every run used OpenCLIP 2.26.1 on
+a Tesla T4 GPU in Kaggle; the multilingual model requires a \texttt{transformers} version below 5.
 \subsection{Few-shot linear probe}  % Owner: WP4
 To find out how many labelled images CLIP needs to recognise Indian dishes, we train a linear classifier on CLIP image features. The CLIP encoder is frozen, which means its weights are not updated. Only the classifier is trained. We use the same three CLIP models as in the zero-shot experiments (Section~\ref{sec:zs-method}). The image features are normalised using L2 normalisation.
 
@@ -232,20 +227,21 @@ For $k \le 16$, every class has exactly $k$ images, so all the balanced weights 
 
 We always test the classifier on the same 1{,}187 Indian test images. We measure top-1 accuracy, top-5 accuracy, and macro-F1, the same as in the CNN and zero-shot experiments. For $k \le 16$, we report the mean and standard deviation over the 3 seeds. The ``all'' setting is a single run, so it has no standard deviation.
 
-\subsection{Full fine-tuning}\label{sec:ft-method}  % DRAFT by Claude; the lead rewrites it. results/finetune*.csv
-To test whether a frozen encoder is the limit, we also fine-tune the whole image encoder of ViT-B/16. The text encoder is
-not used for training. The classifier is a linear layer on the L2-normalised image features. We initialise its weights
-with the text embeddings of the best ViT-B/16 zero-shot setting (romanised Hindi names, \emph{food} template), scaled by
-CLIP's logit scale, so before training the model gives exactly the zero-shot predictions. This setting was picked on the
-test set (Section~\ref{sec:zs-results}). We hold out 10\% of the training split (225 images, stratified, seed 42) as a
-validation set, the same split as for the CNN, and train on the other 2{,}029 images. We train for 10 epochs with AdamW
-(learning rate $10^{-5}$, weight decay 0.1), a cosine schedule, batch size 32, label smoothing 0.1, mixed precision and
-OpenCLIP's standard training augmentation. After each epoch we measure validation accuracy and keep the best checkpoint,
-which is then tested once on the 1{,}187 test images. This is a single run with one seed, on a Tesla T4 GPU.
+\subsection{Full fine-tuning}\label{sec:ft-method}  % Rewritten by Claude for the team; owner must give a final check. results/finetune*.csv
+We also fine-tune the whole ViT-B/16 image encoder, to test whether the frozen encoder is what limits accuracy. The
+text encoder plays no part in training. The classifier is a linear layer on the L2-normalised image features. Its
+weights start as the text embeddings of the best ViT-B/16 zero-shot setting (romanised Hindi names, \emph{food}
+template), scaled by CLIP's logit scale. Before training, the model therefore makes exactly the zero-shot predictions.
+We chose this setting on the test set (Section~\ref{sec:zs-results}). We keep 10\% of the training split (225 images,
+stratified, seed 42) as a validation set, which is the same split as for the CNN, and train on the other 2{,}029
+images. Training runs for 10 epochs with AdamW (learning rate $10^{-5}$, weight decay 0.1), a cosine schedule, batch
+size 32, label smoothing 0.1, mixed precision and OpenCLIP's standard training augmentation. We measure validation
+accuracy after every epoch, keep the best checkpoint, and test it once on the 1{,}187 test images. It is a single run
+with one seed, on a Tesla T4 GPU.
 
 \section{Results}
 \subsection{CNN baseline}          % results/cnn.csv, figures/cnn_curves.pdf
-The test results are shown in Table~\ref{tab:cnn}. The baseline model correctly classified 290 of the 1{,}187 test images, giving 24.4\% top-1 accuracy. Its top-5 accuracy was 56.1\%, and its macro-F1 score was 22.9\%. With 80 classes, random guessing gives 1.25\% top-1 accuracy. The CNN performs better than random guessing, but its overall accuracy is still low. This is likely challenging because the model was trained on only about 25 images per class.
+The test results are shown in Table~\ref{tab:cnn}. The baseline model correctly classified 290 of the 1{,}187 test images, giving 24.4\% top-1 accuracy. Its top-5 accuracy was 56.1\%, and its macro-F1 score was 22.9\%. With 80 classes, random guessing gives 1.25\% top-1 accuracy. The CNN performs better than random guessing, but its overall accuracy is still low. This is likely because the model was trained on only about 25 images per class.
 
 \begin{table}[t]
 \centering
@@ -289,12 +285,12 @@ Run & Change & Top-1 & Top-5 & Macro-F1 & Train acc. & Best val. acc. \\
 This CNN provides a reference for the CLIP experiments. Trained only on the 2{,}029 Indian-food training images, it achieved between 21.3\% and 26.4\% top-1 accuracy across the four runs (24.4\% for the baseline and 26.4\% for the best run, \texttt{size160}). CLIP does much better without any Indian training: the best zero-shot setting reaches 43.1--46.9\% (Section~\ref{sec:zs-results}), and a linear probe on CLIP features with only 2 images per class (34.1--36.1\%) already beats the best CNN run.
 
 \subsection{Zero-shot and prompt language}\label{sec:zs-results}  % results/zeroshot.csv, figures/zeroshot_language.pdf
-% Owner: WP3. DRAFT written with Claude; every number is from results/zeroshot.csv and
-% results/zeroshot_per_class.csv. Owner (WP3) must rewrite in own words before submission.
-Table~\ref{tab:zslang} gives the zero-shot top-1 accuracy on the Indian test set for every model, name language and
-template. The best result is 46.9\% top-1 (66.6\% top-5, 42.2\% macro-F1), from ViT-B/16 with romanised Hindi names
-and the \emph{food} template. All three models reach at least 43\% top-1 with romanised names, without seeing any
-labelled Indian image. The CNN trained on 2{,}029 Indian images reached 21.3--26.4\% (Table~\ref{tab:cnn}).
+% Owner: WP3. Numbers from results/zeroshot.csv and results/zeroshot_per_class.csv.
+% Rewritten by Claude for the team; owner must give a final check.
+Table~\ref{tab:zslang} lists the zero-shot top-1 accuracy on the Indian test set for each model, name language and
+template. ViT-B/16 with romanised Hindi names and the \emph{food} template gives the best result: 46.9\% top-1
+(66.6\% top-5, 42.2\% macro-F1). With romanised names, all three models reach at least 43\% top-1 without any labelled
+Indian image. By comparison, the CNN trained on 2{,}029 Indian images reached 21.3--26.4\% (Table~\ref{tab:cnn}).
 
 \begin{table}[t]
 \centering
@@ -328,39 +324,40 @@ guessing gives 1.25\%.}
 \label{fig:zslang}
 \end{figure}
 
-\paragraph{Dish name vs description.} The romanised Hindi name works better than the English description for all three
-models (Figure~\ref{fig:zslang}). Comparing the best template for each, the name is 10.2 points better for ViT-B/16
-(46.9\% vs 36.7\%), 10.0 points for ViT-B/32 (43.1\% vs 33.1\%) and 6.5 points for the multilingual model (43.6\% vs
-37.1\%). This does not hold for every dish. With ViT-B/16 and the \emph{food} template, the name gives higher accuracy for
-52 classes, the description for 19, and 9 are tied. Well-known dishes gain the most from their name: gulab jamun reaches
-100\% with the name and 33.3\% with the description, poha 100\% vs 13.3\%, and aloo tikki 93.3\% vs 13.3\%. For some
-less widely known dishes the description is much better, for example pootharekulu (86.7\% vs 6.7\%), misi roti (86.7\%
-vs 13.3\%) and chak hao kheer (73.3\% vs 0\%). This suggests that CLIP has learned the names of popular Indian dishes,
-while for rarer dishes a description of the food is more useful than a name it has rarely seen.
+\paragraph{Dish name vs description.} For all three models, the romanised Hindi name works better than the English
+description (Figure~\ref{fig:zslang}). Taking the best template for each, the name wins by 10.2 points for ViT-B/16
+(46.9\% vs 36.7\%), by 10.0 points for ViT-B/32 (43.1\% vs 33.1\%) and by 6.5 points for the multilingual model
+(43.6\% vs 37.1\%). This is not true for every dish. For ViT-B/16 with the \emph{food} template, the name is better
+for 52 classes, the description is better for 19, and 9 are tied. Well-known dishes gain the most from their name:
+gulab jamun gets 100\% with the name and 33.3\% with the description, poha 100\% vs 13.3\%, and aloo tikki 93.3\% vs
+13.3\%. For some less well-known dishes the description is far better, for example pootharekulu (86.7\% vs 6.7\%),
+misi roti (86.7\% vs 13.3\%) and chak hao kheer (73.3\% vs 0\%). This suggests that CLIP has learned the names of
+popular Indian dishes, but for rarer dishes, whose names it has rarely seen, a description of the food helps more.
 
-\paragraph{Devanagari script.} With Devanagari names, the OpenAI models are close to random guessing: 1.2--3.0\% top-1
-for ViT-B/32 and 1.9--2.5\% for ViT-B/16. With the \emph{food} template, 66 (ViT-B/32) and 63 (ViT-B/16) of the 80
-classes get 0\% accuracy. The multilingual model does much better with Devanagari (11.3--16.3\%), but it is still far
-below its own result with romanised names (43.6\%). Writing the whole prompt in Hindi (\emph{hindi native}) did not help:
-14.6\% compared with 16.3\% for the English \emph{indian} template. So a model that can read Hindi text still matches
-Indian food images much better when the dish name is written in Latin script.
+\paragraph{Devanagari script.} The OpenAI models are close to random guessing with Devanagari names: 1.2--3.0\% top-1
+for ViT-B/32 and 1.9--2.5\% for ViT-B/16. Using the \emph{food} template, 66 (ViT-B/32) and 63 (ViT-B/16) of the 80
+classes get 0\% accuracy. The multilingual model is much better with Devanagari (11.3--16.3\%), but still far below
+its own result with romanised names (43.6\%). A prompt written fully in Hindi (\emph{hindi native}) did not help
+either: it gave 14.6\%, against 16.3\% for the English \emph{indian} template. So even a model that can read Hindi text
+matches Indian food images much better when the dish name is in Latin script.
 
 \paragraph{Prompt templates.} Mentioning Indian food in the prompt helps most when the class name is an English
-description: from \emph{food} to \emph{indian}, accuracy rises from 30.7\% to 36.7\% (ViT-B/16), 30.1\% to 33.1\%
-(ViT-B/32) and 32.8\% to 37.1\% (multilingual). With romanised names, the \emph{food}, \emph{indian} and
-\emph{ensemble} templates are within 1.5 points of each other, and the bare name (\emph{plain}) is the weakest for all
-three models. Prompt ensembling was not consistently better than the best single template; it was best only for
-ViT-B/32 with romanised names (43.1\% vs 41.9\%). With 1{,}187 test images, the standard error of an accuracy near 47\%
-is about 1.4 points, so differences of one or two points between templates are not reliable, while the differences of
-about 10 points between name languages are.
+description. Going from \emph{food} to \emph{indian}, accuracy rises from 30.7\% to 36.7\% (ViT-B/16), from 30.1\% to
+33.1\% (ViT-B/32) and from 32.8\% to 37.1\% (multilingual). With romanised names, the \emph{food}, \emph{indian} and
+\emph{ensemble} templates lie within 1.5 points of each other, and the bare name (\emph{plain}) is the weakest for all
+three models. Prompt ensembling did not beat the best single template consistently. It was best only for ViT-B/32 with
+romanised names (43.1\% vs 41.9\%). For 1{,}187 test images, the standard error of an accuracy near 47\% is about 1.4
+points. Template differences of one or two points are therefore not reliable, but the differences of about 10 points
+between name languages are.
 
 \subsection{Indian vs Western bias}\label{sec:bias}  % figures/zeroshot_bias.pdf, figures/worst_classes.pdf
-% Owner: WP3. DRAFT written with Claude; numbers from results/zeroshot.csv, results/zeroshot_per_class.csv,
-% results/zeroshot_confusions.csv and splits/food101_subset.csv. Owner (WP3) must rewrite in own words.
-Table~\ref{tab:zsbias} and Figure~\ref{fig:zsbias} compare the same models with the same template (\emph{food}) on
-Indian dishes and on the 80 Food-101 classes. On Food-101 the models reach 82.6--90.0\% top-1. On Indian dishes, even
-with the better (romanised) names, accuracy is 39--44 points lower. Top-5 accuracy shows the same pattern:
-97.1--99.1\% on Food-101 and 63.3--66.6\% on Indian dishes.
+% Owner: WP3. Numbers from results/zeroshot.csv, results/zeroshot_per_class.csv,
+% results/zeroshot_confusions.csv and splits/food101_subset.csv.
+% Rewritten by Claude for the team; owner must give a final check.
+Table~\ref{tab:zsbias} and Figure~\ref{fig:zsbias} put the same models with the same template (\emph{food}) side by
+side on Indian dishes and on the 80 Food-101 classes. The models reach 82.6--90.0\% top-1 on Food-101. On Indian
+dishes, even with the better (romanised) names, they are 39--44 points lower. Top-5 accuracy follows the same pattern:
+97.1--99.1\% on Food-101 against 63.3--66.6\% on Indian dishes.
 
 \begin{table}[t]
 \centering
@@ -388,11 +385,11 @@ name and ``descr.'' the English description. Gap = Food-101 top-1 minus Indian t
 \label{fig:zsbias}
 \end{figure}
 
-\paragraph{Per-class accuracy.} The difference is also clear for single classes. With ViT-B/16 on Food-101, every class
-reaches at least 60\% (the lowest are steak at 60\% and beet salad and foie gras at 72\%). On Indian dishes, with
-romanised names, the mean class accuracy is 47.1\% and 11 of the 80 classes get 0\%: aloo matar, anarsa, chak hao kheer,
-cham cham, chhena kheeri, imarti, kalakand, ledikeni, lyangcha, qubani ka meetha and sutar feni
-(Figure~\ref{fig:worst}). Ten of these eleven are sweets. For ViT-B/32 and the multilingual model, 15 and 12 classes get 0\%.
+\paragraph{Per-class accuracy.} Single classes show the difference clearly too. With ViT-B/16, every Food-101 class
+reaches at least 60\% (the lowest are steak at 60\% and beet salad and foie gras at 72\%). On Indian dishes with
+romanised names, the mean class accuracy is 47.1\%, and 11 of the 80 classes get 0\%: aloo matar, anarsa, chak hao
+kheer, cham cham, chhena kheeri, imarti, kalakand, ledikeni, lyangcha, qubani ka meetha and sutar feni
+(Figure~\ref{fig:worst}). Ten of these eleven are sweets. ViT-B/32 has 15 classes at 0\% and the multilingual model 12.
 
 \begin{figure}[t]
 \centering
@@ -403,18 +400,18 @@ template). Each class has 15 test images, so accuracy changes in steps of 6.7 po
 \end{figure}
 
 \paragraph{Common confusions.} Many errors give a less well-known dish the label of a better-known dish that looks
-similar. With ViT-B/16 and romanised names, all 15 imarti images are predicted as jalebi, 12 of 15 ledikeni images as
-gulab jamun, 10 of 15 ariselu images as malpua, and 8 of 15 chak hao kheer images as rabri. The dishes in each pair are
-similar in appearance: imarti and jalebi are both fried sweets in syrup, differing mainly in shape, and ledikeni and
-gulab jamun are both fried balls in syrup.
+similar. For ViT-B/16 with romanised names, all 15 imarti images are labelled jalebi, 12 of 15 ledikeni images gulab
+jamun, 10 of 15 ariselu images malpua, and 8 of 15 chak hao kheer images rabri. The two dishes in each pair look alike.
+Imarti and jalebi are both fried sweets in syrup and differ mainly in shape, and ledikeni and gulab jamun are both
+fried balls in syrup.
 
-\paragraph{Limits of this comparison.} The gap cannot be explained by cuisine alone. First, our Food-101 subset is not
-purely Western: it also contains Asian dishes and two Indian dishes, samosa and chicken curry, which ViT-B/16
-recognises well with their English names (88\% and 86\%). This agrees with the idea that familiar dish names are
-recognised well whatever the cuisine. Second, the two datasets differ in more than cuisine: the Indian images were
-scraped from the web and contain label noise (Section~\ref{sec:dataset}), and the Indian set contains several groups of
-very similar sweets, while the Food-101 test images were checked by hand. These differences probably make the Indian
-task harder, so the gap is likely to overstate the effect of cuisine alone.
+\paragraph{Limits of this comparison.} Cuisine alone cannot explain the gap. First, our Food-101 subset is not purely
+Western. It also has Asian dishes and two Indian dishes, samosa and chicken curry, which ViT-B/16 recognises well from
+their English names (88\% and 86\%). This fits the idea that familiar dish names are recognised well, whatever the
+cuisine. Second, the datasets differ in more than cuisine. The Indian images were scraped from the web and contain
+label noise (Section~\ref{sec:dataset}), and the Indian set has several groups of very similar sweets, whereas the
+Food-101 test images were checked by hand. These differences probably make the Indian task harder, so the gap is
+likely to overstate the effect of cuisine alone.
 \subsection{How many shots close the gap?}  % results/fewshot.csv, results/gap.csv, figures/fewshot_curve.pdf
 Table~\ref{tab:fewshot} and Figure~\ref{fig:fewshot} show the top-1 accuracy of the linear probe on the Indian test set. Accuracy goes up as we add more labelled images. With one image per class, the probe gets 25.4\% (ViT-B/32), 27.7\% (ViT-B/16), and 23.1\% (multilingual model). With 16 images per class, it reaches 58.2\%, 60.1\%, and 59.1\%, respectively.
 
@@ -462,13 +459,13 @@ The ``all'' setting uses class-balanced weights. We added them after a first run
 
 The comparison with Food-101 is not fully fair. The Food-101 subset also contains Asian dishes, and the two datasets were created in different ways (Section~\ref{sec:bias}). The test set has 1{,}187 images, so differences of about one percentage point should not be taken as meaningful.
 
-\subsection{Full fine-tuning}\label{sec:ft-results}  % DRAFT by Claude; results/finetune.csv, results/finetune_history.csv
-Table~\ref{tab:ft} compares the fine-tuned ViT-B/16 with the other ViT-B/16 results. Before training (epoch 0) the model
-gets 44.4\% on the validation set, close to its zero-shot test accuracy. Validation accuracy rises to 73.3\% at epoch 7
-and then stays between 70.2\% and 72.0\%, while training accuracy reaches 100\% from epoch 6. On the test set the epoch-7
-model gets 74.0\% top-1, 92.6\% top-5 and 72.6\% macro-F1. This is 27.1 points above zero-shot and 10.1 points above
-the linear probe with all training images, although it was trained on 225 fewer images than the probe. It is still
-16.0 points below the zero-shot accuracy of the same model on Food-101 (90.0\%).
+\subsection{Full fine-tuning}\label{sec:ft-results}  % Rewritten by Claude for the team; owner must give a final check. results/finetune.csv, results/finetune_history.csv
+Table~\ref{tab:ft} sets the fine-tuned ViT-B/16 against the other ViT-B/16 results. Before training (epoch 0), the
+model gets 44.4\% on the validation set, close to its zero-shot test accuracy. Validation accuracy climbs to 73.3\% at
+epoch 7 and then stays between 70.2\% and 72.0\%. Training accuracy first reaches 100\% at epoch 6. On the test set,
+the epoch-7 model gets 74.0\% top-1, 92.6\% top-5 and 72.6\% macro-F1. That is 27.1 points above zero-shot and 10.1
+points above the linear probe with all training images, even though it was trained on 225 fewer images than the probe.
+It is still 16.0 points below the zero-shot accuracy of the same model on Food-101 (90.0\%).
 
 \begin{table}[htbp]
 \centering
@@ -489,37 +486,38 @@ Full fine-tune (best of 10 epochs) & \textbf{74.0} & \textbf{92.6} & \textbf{72.
 \end{table}
 
 \section{Discussion and Limitations}\label{sec:limits}
-% DRAFT written with Claude from the numbers already in Sections 3-5. The lead must rewrite it in own words.
-\paragraph{What the results mean.} CLIP clearly knows something about Indian food: with no Indian training images it
-beats a CNN trained on 2{,}029 of them. Much of this knowledge is tied to dish \emph{names}. Romanised Hindi names beat
-English descriptions by 6.5--10.2 points, and well-known dishes such as gulab jamun and poha gain the most. For rarer
-dishes a description works better. This fits the idea that CLIP learned popular dish names from web captions, while rare
-dishes were seen too little to be named.
+% Rewritten by Claude for the team; owner must give a final check.
+\paragraph{What the results mean.} CLIP clearly has some knowledge of Indian food: without any Indian training images
+it beats a CNN trained on 2{,}029 of them. A large part of this knowledge is linked to dish \emph{names}. Romanised
+Hindi names beat English descriptions by 6.5--10.2 points, and the biggest gains are for well-known dishes such as
+gulab jamun and poha. For rarer dishes, a description works better. This is consistent with CLIP learning popular dish
+names from web captions, while rare dishes appeared too seldom for their names to be learned.
 
-\paragraph{The gap is not only a data problem.} Labelled data helps a lot: 8 images per class beat the best zero-shot
-prompt, and all training images give 61.5--63.9\%. But even then the probe stays more than 20 points below the same
-models' zero-shot accuracy on Food-101. Fine-tuning the whole ViT-B/16 encoder adds another 10.1 points (74.0\%), so
-the frozen features were part of the limit. Still, the fine-tuned model stays 16.0 points below its own zero-shot
-accuracy on Food-101, so within our setup neither more labels nor fine-tuning closes the gap. The fine-tuned model also
-reaches 100\% training accuracy within 6 epochs, so with about 25 images per class it overfits quickly.
+\paragraph{The gap is not only a data problem.} Labelled data helps a lot. With 8 images per class the probe beats the
+best zero-shot prompt, and with all training images it reaches 61.5--63.9\%. Even so, the probe stays more than 20
+points below the zero-shot accuracy of the same models on Food-101. Fine-tuning the whole ViT-B/16 encoder adds a
+further 10.1 points (74.0\%), so the frozen features were part of the limit. But the fine-tuned model is still 16.0
+points below its own zero-shot accuracy on Food-101, so within our setup neither more labels nor fine-tuning closes
+the gap. The fine-tuned model also hits 100\% training accuracy within 6 epochs, so with about 25 images per class it
+overfits fast.
 
-\paragraph{Script, not language.} Devanagari prompts were close to random for the OpenAI models and stayed weak for the
-multilingual model (at most 16.3\%). Even a model trained on multilingual text matched Indian food images better with
-Latin-script names. A likely reason is that captions of Indian food on the web are mostly written in Latin script, so the
-image--text pairs CLIP learned from rarely contain Devanagari dish names.
+\paragraph{Script, not language.} For the OpenAI models Devanagari prompts were close to random, and for the
+multilingual model they stayed weak (at most 16.3\%). Even the model trained on multilingual text matched Indian food
+images better with Latin-script names. One likely reason is that web captions of Indian food are mostly in Latin
+script, so the image--text pairs CLIP learned from seldom include Devanagari dish names.
 
-\paragraph{Limitations.} (i) \emph{Label noise.} The Indian set was scraped from the web. De-duplication removed 52 images
-filed under two dishes, including 17 chicken tikka masala photos, and other wrong labels that are not duplicates likely
-remain. This lowers every method's score. (ii) \emph{Small test set.} With 15 test images per class (1{,}187 in total),
-differences of one or two points are within noise. (iii) \emph{Unequal comparison.} The Food-101 test images were
-cleaned by hand, the two datasets were built in different ways, and Food-101 is a common benchmark, so we cannot rule out
-that images like it were in CLIP's training data. Part of the gap may come from these differences rather than from the
-cuisine. (iv) \emph{Choices made on the test set.} The best zero-shot setting, the class weights of the probe and the
-starting head of the fine-tuned model were chosen after seeing test results. Only the fine-tuning epoch was picked on a
-validation set. (v) \emph{Names.} Each dish has one
-romanised spelling, but many dishes are spelled in several ways; other spellings may score differently. (vi)
-\emph{Compute.} We used free Kaggle and Colab GPUs and small CLIP models (ViT-B). Fine-tuning is a single run of one
-model with one seed and no hyperparameter search.
+\paragraph{Limitations.} (i) \emph{Label noise.} The Indian set comes from web scraping. De-duplication removed 52
+images filed under two dishes, 17 chicken tikka masala photos among them, and other wrong labels that are not
+duplicates probably remain. This lowers the score of every method. (ii) \emph{Small test set.} With 15 test images per
+class (1{,}187 in total), differences of one or two points are within noise. (iii) \emph{Unequal comparison.} The
+Food-101 test images were cleaned by hand, the two datasets were built differently, and Food-101 is a common
+benchmark, so images like it may have been in CLIP's training data. Part of the gap may come from these differences
+and not from the cuisine. (iv) \emph{Choices made on the test set.} We chose the best zero-shot setting, the class
+weights of the probe and the starting head of the fine-tuned model after seeing test results. Only the fine-tuning
+epoch was chosen on a validation set. (v) \emph{Names.} Each dish has one romanised spelling, while many dishes are
+spelled in several ways; other spellings may score differently. (vi) \emph{Compute.} We used free Kaggle and Colab
+GPUs and small CLIP models (ViT-B). Fine-tuning is a single run of one model with one seed, with no hyperparameter
+search.
 
 \section{Conclusion}               % Owner: WP4
 Zero-shot CLIP recognises Indian dishes much better than a small CNN trained from scratch. The best zero-shot accuracy for each model is 43.1--46.9\% top-1, while the best CNN run reaches 26.4\%. However, this is still far below the accuracy of the same models on Food-101 (82.6--90.0\%). For ViT-B/16, Romanised Hindi dish names work better than English descriptions, with 46.9\% compared to 36.7\%. A linear probe beats the best zero-shot result with 8 images per class, and reaches 61.5--63.9\% accuracy with all training images. Even then, it does not reach the zero-shot accuracy on Food-101. It also does not reach it with 16 or fewer images per class. Fine-tuning the whole ViT-B/16 image encoder raises accuracy to 74.0\%, 10.1 points above the probe, but this is still 16.0 points below the same model's zero-shot accuracy on Food-101 (90.0\%). So, in our experiments, neither more labelled data nor fine-tuning was enough to close the gap. These results come from a single test set, the datasets were created in different ways, and the class weights were chosen after seeing the test results.
