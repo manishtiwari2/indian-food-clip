@@ -228,3 +228,13 @@ def load_dataset(cfg: dict, name: str) -> tuple[list[Path], pd.DataFrame, list[s
     classes = sorted(df["label"].unique())
     df["y"] = df["label"].map({c: i for i, c in enumerate(classes)})
     return [root / r for r in df["relpath"]], df, classes
+
+
+def train_val_split(train_idx: np.ndarray, y: np.ndarray, val_fraction: float, n_classes: int,
+                    seed: int) -> tuple[np.ndarray, np.ndarray]:
+    """Hold out a stratified validation part of the training split (used to pick the best epoch)."""
+    from sklearn.model_selection import train_test_split
+
+    n_val = int(round(len(train_idx) * val_fraction))
+    stratify = y[train_idx] if n_val >= n_classes else None
+    return train_test_split(train_idx, test_size=n_val, random_state=seed, stratify=stratify)

@@ -47,3 +47,14 @@ fewshot:
   seeds: [0, 1, 2]
   C: 0.316                           # inverse L2 strength for logistic regression
   class_weight: balanced             # balanced or null (null = no weights, the old behaviour; see D12)
+
+finetune:                            # D13: full fine-tune of the image encoder; head starts as zero-shot
+  model: {name: ViT-B-16, pretrained: openai}
+  language: hindi_roman              # head init = best ViT-B/16 zero-shot setting (Section 5.2)
+  template: food
+  epochs: 10
+  lr: 1.0e-5
+  weight_decay: 0.1
+  batch_size: 32
+  val_fraction: 0.1                  # same validation split as the CNN (same seed)
+  num_workers: 2

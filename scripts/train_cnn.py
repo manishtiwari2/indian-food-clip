@@ -12,11 +12,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import numpy as np  # noqa: E402
 import torch  # noqa: E402
-from sklearn.model_selection import train_test_split  # noqa: E402
 
 from foodclip.cnn import SmallResNet, predict, train_one_epoch  # noqa: E402
 from foodclip.config import base_parser, config_from_args, resolve  # noqa: E402
-from foodclip.data import ImageDataset, SimpleTransform, load_dataset  # noqa: E402
+from foodclip.data import ImageDataset, SimpleTransform, load_dataset, train_val_split  # noqa: E402
 from foodclip.io import get_device, run_meta, set_seed, write_rows  # noqa: E402
 from foodclip.metrics import per_class_accuracy, summarize, topk_accuracy  # noqa: E402
 
@@ -35,9 +34,7 @@ def main() -> None:
     y = df["y"].to_numpy()
     train_idx = np.nonzero(df["split"].to_numpy() == "train")[0]
     test_idx = np.nonzero(df["split"].to_numpy() == "test")[0]
-    n_val = int(round(len(train_idx) * c["val_fraction"]))
-    stratify = y[train_idx] if n_val >= len(classes) else None
-    tr_idx, val_idx = train_test_split(train_idx, test_size=n_val, random_state=cfg["seed"], stratify=stratify)
+    tr_idx, val_idx = train_val_split(train_idx, y, c["val_fraction"], len(classes), cfg["seed"])
 
     def loader(idx, train):
         ds = ImageDataset(paths[idx], y[idx], SimpleTransform(c["image_size"], train, c.get("color_jitter", 0.0)))

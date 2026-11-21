@@ -106,6 +106,24 @@ def test_cnn_forward_and_one_step():
     assert np.isfinite(loss) and scores.shape == (8, 4) and len(ys) == 8
 
 
+def test_clip_classifier_starts_as_zero_shot_and_trains():
+    from foodclip.finetune import ClipClassifier
+
+    torch.manual_seed(0)
+    visual = torch.nn.Linear(6, 4)  # stands in for the CLIP image encoder
+    text = np.random.default_rng(0).standard_normal((3, 4)).astype(np.float32)
+    text /= np.linalg.norm(text, axis=1, keepdims=True)
+    model = ClipClassifier(visual, text, logit_scale=100.0)
+    x, y = torch.randn(5, 6), torch.tensor([0, 1, 2, 0, 1])
+    with torch.no_grad():
+        f = visual(x).numpy()
+        expected = zero_shot_scores(f / np.linalg.norm(f, axis=1, keepdims=True), text)
+        assert np.allclose(model(x).numpy(), expected, atol=1e-4)
+    before = visual.weight.detach().clone()
+    loss, _ = train_one_epoch(model, [(x, y)], torch.optim.AdamW(model.parameters(), lr=1e-2), torch.device("cpu"))
+    assert np.isfinite(loss) and not torch.equal(before, visual.weight)
+
+
 def test_config_overrides():
     cfg = load_config(overrides=["cnn.epochs=3", "paths.indian_raw=/tmp/x", "fewshot.shots=[1,2]"])
     assert cfg["cnn"]["epochs"] == 3
