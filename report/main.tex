@@ -27,7 +27,7 @@
 
 \title{Zero-shot vs Few-shot Indian Food Recognition with CLIP}
 \author{Manish Tiwari, Anuradha Tiwari, Aradhya Patel, Divyanshi Rathour\\
-Team 11 (P11), \todo{department, institution}}
+Team 11 (P11), Sitare University}
 \maketitle
 
 \begin{abstract}
@@ -75,7 +75,7 @@ Zero-shot CLIP gets only 43.1--46.9\% top-1 accuracy on Indian dishes, compared 
 \section{Related Work}
 \paragraph{CLIP and zero-shot recognition.} CLIP~\cite{radford2021clip} learns image and text features together. During training, it learns to place matching images and captions close to each other in the feature space. This allows it to classify images without training on the target classes directly. For zero-shot classification, class names are placed in a prompt such as ``a photo of pizza''. CLIP compares the image with these text prompts and selects the closest match. OpenCLIP~\cite{cherti2023openclip} is an open implementation of CLIP trained with public datasets. It also includes multilingual models, including models trained using LAION-5B~\cite{schuhmann2022laion5b}. These models are used in our zero-shot and few-shot experiments.
 
-\paragraph{Food recognition.} Food-101~\cite{bossard2014food101} is a widely used food-image benchmark. It contains 101 classes, with 1,000 images per class: 750 for training and 250 for testing. The test images were manually cleaned, while some noise remains in the training images. Our Indian-food dataset is the Kaggle Indian Food Images Dataset~\cite{banerjee2022indianfood}, which contains 80 classes and is described in Section~\ref{sec:dataset}. \todo{Add one or two published Indian food-recognition papers after reading them.}
+\paragraph{Food recognition.} Food-101~\cite{bossard2014food101} is a widely used food-image benchmark. It contains 101 classes, with 1,000 images per class: 750 for training and 250 for testing. The test images were manually cleaned, while some noise remains in the training images. Our Indian-food dataset is the Kaggle Indian Food Images Dataset~\cite{banerjee2022indianfood}, which contains 80 classes and is described in Section~\ref{sec:dataset}. Pandey et al.~\cite{pandey2017foodnet} built their own Indian food image database and recognised dishes with an ensemble of fine-tuned CNNs, evaluated on that database and on Food-101. Their approach trains on labelled Indian images; we instead ask how far CLIP gets with no or few labelled images.
 
 \paragraph{Bias in vision datasets and models.} Image datasets do not represent all countries and cultures equally. Shankar et al.~\cite{shankar2017geodiversity} found that two large public image datasets show a clear bias towards images from North America and Europe, and that classifiers trained on them perform very differently on images from different locales. De Vries et al.~\cite{devries2019everyone} tested publicly available object-recognition systems on a geographically diverse set of household items. They found that the systems perform relatively poorly on items that are common in countries with a low household income, and they link this mainly to differences in appearance and context. These findings motivate our study of how well CLIP recognises Indian dishes compared with Western dishes.
 
@@ -273,9 +273,9 @@ Run & Change & Top-1 & Top-5 & Macro-F1 & Train acc. & Best val. acc. \\
 \label{fig:cnnclasses}
 \end{figure}
 
-\paragraph{Accuracy by class.} Figure~\ref{fig:cnnclasses} shows that the model's performance varied across dishes. For \texttt{size160}, mean class accuracy was 26.7\%. Eleven classes reached at least 50\% accuracy, while five classes had 0\%. Naan and palak paneer had the highest accuracy (73.3\% each), followed by gulab jamun (66.7\%), chicken tikka masala (62.5\%, 5 of 8 images), and poha (60.0\%). Aloo tikki, karela bharta, mysore pak, qubani ka meetha, and sheera had 0\% accuracy. The baseline also had five classes with 0\% accuracy, while \texttt{ep30} had ten. We did not save the model predictions, so we cannot identify which classes were predicted instead for these difficult dishes. \todo{If time allows, save predictions and report the most common class confusions.}
+\paragraph{Accuracy by class.} Figure~\ref{fig:cnnclasses} shows that the model's performance varied across dishes. For \texttt{size160}, mean class accuracy was 26.7\%. Eleven classes reached at least 50\% accuracy, while five classes had 0\%. Naan and palak paneer had the highest accuracy (73.3\% each), followed by gulab jamun (66.7\%), chicken tikka masala (62.5\%, 5 of 8 images), and poha (60.0\%). Aloo tikki, karela bharta, mysore pak, qubani ka meetha, and sheera had 0\% accuracy. The baseline also had five classes with 0\% accuracy, while \texttt{ep30} had ten. We did not save the model predictions, so we cannot identify which classes were predicted instead for these difficult dishes.
 
-This CNN provides a reference for the CLIP experiments. Trained only on the 2{,}029 Indian-food training images, it achieved between 21.3\% and 26.4\% top-1 accuracy across the four runs (24.4\% for the baseline and 26.4\% for the best run, \texttt{size160}). We will compare it with the zero-shot and few-shot CLIP results in the later sections. \todo{Add the comparison when the zero-shot and few-shot results are available.}
+This CNN provides a reference for the CLIP experiments. Trained only on the 2{,}029 Indian-food training images, it achieved between 21.3\% and 26.4\% top-1 accuracy across the four runs (24.4\% for the baseline and 26.4\% for the best run, \texttt{size160}). CLIP does much better without any Indian training: the best zero-shot setting reaches 43.1--46.9\% (Section~\ref{sec:zs-results}), and a linear probe on CLIP features with only 2 images per class (34.1--36.1\%) already beats the best CNN run.
 
 \subsection{Zero-shot and prompt language}\label{sec:zs-results}  % results/zeroshot.csv, figures/zeroshot_language.pdf
 % Owner: WP3. DRAFT written with Claude; every number is from results/zeroshot.csv and
@@ -452,9 +452,33 @@ The ``all'' setting uses class-balanced weights. We added them after a first run
 The comparison with Food-101 is not fully fair. The Food-101 subset also contains Asian dishes, and the two datasets were created in different ways (Section~\ref{sec:bias}). The test set has 1{,}187 images, so differences of about one percentage point should not be taken as meaningful.
 
 \section{Discussion and Limitations}\label{sec:limits}
-% WP1 note: mention the 52 cross-class copies / 17 chicken tikka masala photos (Section 3) here.
-% Noisy scraped labels, small test set (15/class), Food-101 overlap, Hindi spellings, compute limits.
-\todo{discussion}
+% DRAFT written with Claude from the numbers already in Sections 3-5. The lead must rewrite it in own words.
+\paragraph{What the results mean.} CLIP clearly knows something about Indian food: with no Indian training images it
+beats a CNN trained on 2{,}029 of them. Much of this knowledge is tied to dish \emph{names}. Romanised Hindi names beat
+English descriptions by 6.5--10.2 points, and well-known dishes such as gulab jamun and poha gain the most. For rarer
+dishes a description works better. This fits the idea that CLIP learned popular dish names from web captions, while rare
+dishes were seen too little to be named.
+
+\paragraph{The gap is not only a data problem.} Labelled data helps a lot: 8 images per class beat the best zero-shot
+prompt, and all training images give 61.5--63.9\%. But even then the probe stays more than 20 points below the same
+models' zero-shot accuracy on Food-101. So, within our setup, a frozen CLIP encoder plus a linear classifier does not
+close the gap. Fine-tuning the encoder might, but we did not test it.
+
+\paragraph{Script, not language.} Devanagari prompts were close to random for the OpenAI models and stayed weak for the
+multilingual model (at most 16.3\%). Even a model trained on multilingual text matched Indian food images better with
+Latin-script names. A likely reason is that captions of Indian food on the web are mostly written in Latin script, so the
+image--text pairs CLIP learned from rarely contain Devanagari dish names.
+
+\paragraph{Limitations.} (i) \emph{Label noise.} The Indian set was scraped from the web. De-duplication removed 52 images
+filed under two dishes, including 17 chicken tikka masala photos, and other wrong labels that are not duplicates likely
+remain. This lowers every method's score. (ii) \emph{Small test set.} With 15 test images per class (1{,}187 in total),
+differences of one or two points are within noise. (iii) \emph{Unequal comparison.} The Food-101 test images were
+cleaned by hand, the two datasets were built in different ways, and Food-101 is a common benchmark, so we cannot rule out
+that images like it were in CLIP's training data. Part of the gap may come from these differences rather than from the
+cuisine. (iv) \emph{Choices made on the test set.} There is no separate validation set for CLIP. The best zero-shot
+setting and the class weights of the probe were chosen after seeing test results. (v) \emph{Names.} Each dish has one
+romanised spelling, but many dishes are spelled in several ways; other spellings may score differently. (vi)
+\emph{Compute.} We used free Kaggle hardware, small CLIP models (ViT-B) and no fine-tuning.
 
 \section{Conclusion}               % Owner: WP4
 Zero-shot CLIP recognises Indian dishes much better than a small CNN trained from scratch. The best zero-shot accuracy for each model is 43.1--46.9\% top-1, while the best CNN run reaches 26.4\%. However, this is still far below the accuracy of the same models on Food-101 (82.6--90.0\%). For ViT-B/16, Romanised Hindi dish names work better than English descriptions, with 46.9\% compared to 36.7\%. A linear probe beats the best zero-shot result with 8 images per class, and reaches 61.5--63.9\% accuracy with all training images. Even then, it does not reach the zero-shot accuracy on Food-101. It also does not reach it with 16 or fewer images per class. So, in our experiments, adding labelled data alone was not enough to close the gap. These results come from a single test set, the datasets were created in different ways, and the class weights were chosen after seeing the test results.
