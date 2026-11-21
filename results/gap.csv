@@ -1,0 +1,4 @@
+model,western_zero_shot_top1,indian_best_zero_shot_top1,indian_all_shot_probe_top1,shots_to_reach_western
+ViT-B-32,0.85575,0.4313395113732097,0.6149957877000842,not reached
+ViT-B-16,0.90025,0.4692502106149958,0.6385846672283066,not reached
+xlm-roberta-base-ViT-B-32,0.82625,0.4363942712721145,0.6208930075821398,not reached
