@@ -18,4 +18,4 @@ A decision is final only when the lead marks it `decided` with a date.
 | D11 | CLIP models: OpenAI ViT-B/32, ViT-B/16, LAION XLM-R ViT-B/32 (multilingual) | decided | 2026-11-19 | All via `open_clip` |
 | D12 | Few-shot: linear probe with balanced class weights at 1/2/4/8/16/all shots, seeds 0/1/2 | decided | 2026-11-21 | Decided by lead Manish. Changed after the first run: with no class weights, "all" had lower top-1 than k=16 for all 3 models (old "all" top-1: ViT-B-32 0.524, ViT-B-16 0.572, xlm-roberta 0.570). A diagnostic on ViT-B-32 gave 0.615 with balanced weights. Seen on the test set, so this is a post-hoc choice. The unweighted "all" numbers are in `results/fewshot.csv` (rows with `class_weight` == `none`). `fewshot.class_weight` in the config; one extra unweighted "all" row per model is kept in `results/fewshot.csv` |
 | D13 | Optional full fine-tune of ViT-B/16 | **open** | | Only if time remains |
-| D14 | Who submits the Google form | **open** | | One entry per team; needs roll numbers |
+| D14 | Who submits the Google form | decided | 2026-11-21 | Manish (lead) submits one entry for the team; needs everyone's roll numbers |
