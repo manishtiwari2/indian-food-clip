@@ -29,7 +29,18 @@ GPU runs: `notebooks/kaggle_pipeline.ipynb` on Kaggle (T4).
 - Western: [Food-101](https://data.vision.ee.ethz.ch/cvl/datasets_extra/food-101/) test split, 80 random classes × 50 images (seed 42).
 
 ## Results
-`TODO(result)` — filled only from `results/*.csv` after the Kaggle runs.
+Top-1 accuracy (%) on the 1,187 Indian test images, from `results/*.csv`. Food-101 is 80 classes × 50 images.
+
+| Method | ViT-B/32 | ViT-B/16 | XLM-R ViT-B/32 |
+|---|---|---|---|
+| CNN from scratch (best of 4 runs, `size160`) | 26.4 | – | – |
+| CLIP zero-shot, best Indian setting (romanised Hindi) | 43.1 | 46.9 | 43.6 |
+| Linear probe, 16 shots per class (mean of 3 seeds) | 58.2 | 60.1 | 59.1 |
+| Linear probe, all 2,254 training images (balanced weights) | 61.5 | 63.9 | 62.1 |
+| *Food-101 zero-shot (`food` template)* | *85.6* | *90.0* | *82.6* |
+
+The CNN does not use CLIP, so it has one value. Even with all training images, the probe stays below
+Food-101 zero-shot for every model (`results/gap.csv`). Details: `results/cnn.csv`, `zeroshot.csv`, `fewshot.csv`.
 
 ## Team
 Manish Tiwari · Aradhya Patel · Divyanshi Rathour · Anuradha Tiwari
