@@ -32,7 +32,19 @@ Team 11 (P11), \todo{department, institution}}
 
 \begin{abstract}
 % Owner: WP4. Write last. 150-200 words: question, data, three methods, main numbers, conclusion.
-\todo{abstract}
+% DRAFT written with Claude, owner must rewrite in own words. Numbers from results/zeroshot.csv, results/cnn.csv,
+% results/fewshot.csv and results/gap.csv.
+Can a vision-language model recognise Indian dishes that it rarely saw during training, and how many labelled
+images does it need? We study this with CLIP on a cleaned 80-class Indian food dataset (2{,}254 training and
+1{,}187 test images) and on a size-matched set of 80 Food-101 classes. We compare three methods: a small CNN
+trained from scratch, CLIP zero-shot classification with prompts in English, romanised Hindi and Devanagari, and a
+linear probe on frozen CLIP features trained with 1 to 16 labelled images per class or with all training images.
+Three CLIP models are tested. The best CNN run reaches 26.4\% top-1 accuracy. Zero-shot CLIP reaches
+43.1--46.9\% on Indian dishes, but 82.6--90.0\% on Food-101 with the same template. Romanised dish names work
+better than English descriptions, and Devanagari names are close to random guessing for the OpenAI models. A
+linear probe passes the zero-shot result from 8 images per class and reaches 61.5--63.9\% with all training
+images, but it does not reach the Food-101 zero-shot level. The class weights of the probe were chosen after we had
+seen test results, and part of the gap may come from differences between the two datasets.
 \end{abstract}
 
 \noindent\textbf{Key Words:} CLIP, zero-shot learning, few-shot learning, food recognition, dataset bias, Indian cuisine.
@@ -69,7 +81,10 @@ Our contributions are: (i) a cleaned and de-duplicated split of a public 80-clas
 with English, romanised Hindi and Devanagari names for every class; (ii) a size-matched comparison set
 of 80 Food-101 classes; (iii) a controlled comparison of a CNN baseline, CLIP zero-shot with several
 prompt templates and languages, and few-shot linear probes; and (iv) open code and splits so that
-every number in this report can be reproduced. \todo{one-sentence summary of main findings once results exist}
+every number in this report can be reproduced.
+% DRAFT written with Claude, owner must rewrite in own words. Numbers from results/gap.csv and results/fewshot.csv.
+In short, zero-shot CLIP reaches 43.1--46.9\% top-1 on Indian dishes against 82.6--90.0\% on Food-101, and a linear
+probe with all training images reaches 61.5--63.9\%, which is still below the Food-101 zero-shot level.
 
 \section{Related Work}
 \paragraph{CLIP and zero-shot recognition.} CLIP~\cite{radford2021clip} learns image and text features together. During training, it learns to place matching images and captions close to each other in the feature space. This allows it to classify images without training on the target classes directly. For zero-shot classification, class names are placed in a prompt such as ``a photo of pizza''. CLIP compares the image with these text prompts and selects the closest match. OpenCLIP~\cite{cherti2023openclip} is an open implementation of CLIP trained with public datasets. It also includes multilingual models, including models trained using LAION-5B~\cite{schuhmann2022laion5b}. These models are used in our zero-shot and few-shot experiments.
@@ -411,13 +426,74 @@ scraped from the web and contain label noise (Section~\ref{sec:dataset}), and th
 very similar sweets, while the Food-101 test images were checked by hand. These differences probably make the Indian
 task harder, so the gap is likely to overstate the effect of cuisine alone.
 \subsection{How many shots close the gap?}  % results/fewshot.csv, results/gap.csv, figures/fewshot_curve.pdf
-\todo{few-shot results}
+% DRAFT written with Claude, owner must rewrite in own words. Every number is from results/fewshot.csv and
+% results/gap.csv (run of 2026-11-21); the zero-shot values in the table are from results/zeroshot.csv.
+Table~\ref{tab:fewshot} and Figure~\ref{fig:fewshot} show the top-1 accuracy of the linear probe on the Indian test
+set. Accuracy rises with every step in the number of labelled images. With one image per class the probe reaches
+25.4\% (ViT-B/32), 27.7\% (ViT-B/16) and 23.1\% (multilingual model); with 16 images it reaches 58.2\%, 60.1\% and
+59.1\%. Top-5 accuracy and macro-F1 rise in the same way (\texttt{results/fewshot.csv}). The standard deviation over
+the three seeds is at most 2.3 points in every setting.
 
-% Example figure (uncomment when the PDF exists):
-% \begin{figure}[t]\centering
-% \includegraphics[width=0.8\linewidth]{fewshot_curve.pdf}
-% \caption{Few-shot linear probe accuracy on the Indian test set.}\label{fig:fewshot}
-% \end{figure}
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{lrrr}
+\toprule
+Setting & ViT-B/32 & ViT-B/16 & XLM-R ViT-B/32 \\
+\midrule
+1 shot per class & 25.4 $\pm$ 1.1 & 27.7 $\pm$ 2.3 & 23.1 $\pm$ 0.4 \\
+2 shots & 34.3 $\pm$ 1.1 & 36.1 $\pm$ 1.4 & 34.1 $\pm$ 1.2 \\
+4 shots & 43.0 $\pm$ 0.3 & 46.4 $\pm$ 0.4 & 43.0 $\pm$ 0.7 \\
+8 shots & 51.6 $\pm$ 1.1 & 54.2 $\pm$ 0.5 & 51.9 $\pm$ 1.0 \\
+16 shots & 58.2 $\pm$ 0.8 & 60.1 $\pm$ 0.6 & 59.1 $\pm$ 0.8 \\
+all, class-balanced & 61.5 & 63.9 & 62.1 \\
+all, unweighted & 52.4 & 57.2 & 57.0 \\
+\midrule
+Indian zero-shot, best setting & 43.1 & 46.9 & 43.6 \\
+Food-101 zero-shot & 85.6 & 90.0 & 82.6 \\
+\bottomrule
+\end{tabular}
+\caption{Top-1 accuracy (\%) on the 1{,}187 Indian test images. Linear probe: mean $\pm$ sample standard deviation
+over 3 seeds for 1 to 16 shots; ``all'' (2{,}254 training images) is a single run. Probe rows use class-balanced
+weights except ``all, unweighted''. Zero-shot rows: the best Indian setting over all prompt languages and templates,
+and Food-101 with the template ``a photo of \{\}, a type of food.''.}
+\label{tab:fewshot}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.85\linewidth]{fewshot_curve.pdf}
+\caption{Few-shot linear probe: top-1 accuracy on the Indian test set against labelled images per class (mean and
+standard deviation over 3 seeds). The star marks the ``all'' setting (full training split, 19 to 34 images per class)
+and is placed at the right end of the axis for display only. The dashed lines are each model's Food-101 zero-shot
+top-1. The ``all'' point uses class-balanced weights.}
+\label{fig:fewshot}
+\end{figure}
+
+\paragraph{Few-shot against zero-shot.} The probe beats the best zero-shot result on Indian dishes from $k=8$ on, for
+all three models. At $k=8$ it is ahead by 8.5, 7.2 and 8.3 points (ViT-B/32, ViT-B/16, multilingual model), and every
+single seed is above the zero-shot value. At $k=4$ it is still slightly behind: 43.0\% against 43.1\%, 46.4\% against
+46.9\% and 43.0\% against 43.6\%. The ``best zero-shot'' value is the highest over all prompt languages and templates
+(Section~\ref{sec:zs-results}), picked on the same test set, so it favours zero-shot.
+
+\paragraph{The Western level is not reached.} Neither up to 16 shots nor all 2{,}254 training images bring the
+probe to the Food-101 zero-shot level. With all images, ViT-B/32 reaches 61.5\% against 85.6\% on Food-101, ViT-B/16
+reaches 63.9\% against 90.0\%, and the multilingual model reaches 62.1\% against 82.6\%. The remaining gaps are 24.1,
+26.2 and 20.5 points. In \texttt{results/gap.csv}, \texttt{shots\_to\_reach\_western} is therefore ``not reached''
+for all three models.
+
+\paragraph{Class weights.} The ``all'' rows use class-balanced weights. We added them after a first run without
+weights, in which ``all'' was lower than 16 shots for all three models (52.4\%, 57.2\% and 57.0\% against 58.2\%,
+60.1\% and 59.1\%). With balanced weights, ``all'' is higher than 16 shots for all three models. For 1 to 16 shots
+every class has the same number of images, so the weights are all 1 and these rows are the same with or without
+weights. The weight choice is post-hoc: it was made after the test results were seen, and the project lead approved
+it (decision D12 in the repository).
+
+\paragraph{Limits.} The Western level is not a pure comparison of cuisines: the Food-101 subset also contains Asian
+dishes, and the two datasets are built differently, with scraped and partly mislabelled Indian images and
+hand-checked Food-101 test images (Section~\ref{sec:bias}). The Western value is also a zero-shot result, while the
+probe is trained on labelled images. The ``all'' results are single runs, and with 1{,}187 test images differences of
+about one point should not be over-interpreted.
 
 \section{Discussion and Limitations}\label{sec:limits}
 % WP1 note: mention the 52 cross-class copies / 17 chicken tikka masala photos (Section 3) here.
@@ -425,7 +501,18 @@ task harder, so the gap is likely to overstate the effect of cuisine alone.
 \todo{discussion}
 
 \section{Conclusion}               % Owner: WP4
-\todo{conclusion}
+% DRAFT written with Claude, owner must rewrite in own words. Numbers from results/zeroshot.csv, results/cnn.csv,
+% results/fewshot.csv and results/gap.csv.
+CLIP recognises Indian dishes much better than a small CNN trained from scratch, even without seeing a labelled
+Indian image: the best zero-shot result per model is 43.1--46.9\% top-1, while the best CNN run reaches 26.4\%. This
+is still far below the same models on 80 Food-101 classes (82.6--90.0\%). The way a dish is written matters:
+romanised Hindi names work better than English descriptions (46.9\% against 36.7\% for ViT-B/16), while Devanagari
+names are close to random guessing for the OpenAI models (at most 3.0\%). A linear probe on frozen CLIP features
+passes the best zero-shot result from 8 labelled images per class (51.6--54.2\%) and reaches 61.5--63.9\% with all
+2{,}254 training images. Even so, the Food-101 zero-shot level is not reached with up to 16 shots or with all
+training images, so more labelled data alone did not close the gap in our experiments. Part of the gap may come from
+the datasets themselves, since the Indian images are scraped and partly mislabelled and the Food-101 subset is not
+purely Western, and our conclusions rest on one test set and a class-weight choice made after seeing test results.
 
 \section*{Code availability}
 Code, data splits and result files: \url{https://github.com/manishtiwari2/indian-food-clip}.
