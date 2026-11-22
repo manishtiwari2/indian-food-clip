@@ -25,6 +25,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+# pandas: DataFrame tables and CSV writing (used for pd.concat below).
 import pandas as pd
 
 # Make the library in src/ importable without installing it.
@@ -61,7 +62,9 @@ def prepare_indian(cfg: dict) -> None:
     # resolve() makes the config path absolute; mkdir(exist_ok) avoids an error if it already exists.
     out = resolve(cfg["paths"]["splits"])
     out.mkdir(parents=True, exist_ok=True)
+    # df is a DataFrame with one row per image, shape (n_images, 2).
     class_root, df = list_images(resolve(cfg["paths"]["indian_raw"]))  # df columns: relpath, label
+    # df['label'].nunique() = number of distinct class labels.
     print(f"found {len(df)} images in {df['label'].nunique()} classes under {class_root}")
 
     # Drop images that cannot be opened, and remember them with the reason "corrupt".
@@ -71,29 +74,36 @@ def prepare_indian(cfg: dict) -> None:
     # so this table has the same columns as the table dedup() returns and the two can be stacked.
     corrupt = df[[not v for v in ok]].assign(duplicate_of="", reason="corrupt")  # same columns as dedup output
     # Keep only the valid rows (boolean list used as a mask).
+    # df[ok] keeps only the rows where ok is True; shape becomes (n_valid, 2).
     df = df[ok]
     # Remove near-duplicate images (small perceptual-hash distance), so test images are not copies of train.
     # dedup returns two tables: kept images and removed images (with which image each one duplicated).
     kept, removed = dedup(df, class_root, cfg["split"]["dedup_max_distance"])
     # Stack the corrupt rows on top of the duplicate rows into one "removed" table.
+    # pd.concat joins the two DataFrames row-wise (same columns); ignore_index=True renumbers rows 0..n-1.
     removed = pd.concat([corrupt, removed], ignore_index=True)
     # Split each class into train and test with the fixed seed, so the split is reproducible.
     # test_per_class test images per class; classes with fewer than 2 x test_per_class images get about 30%
     # (at least 1) for test (D10). The rest go to train.
+    # split = kept DataFrame plus a "split" column holding "train" or "test"; sorted by label, relpath.
     split = stratified_split(kept, cfg["split"]["test_per_class"], cfg["seed"])
 
     # Save the split and the list of removed images, then print a short summary.
     # utf-8 and index=False keep the CSV clean and readable on any machine.
     split.to_csv(out / "indian_split.csv", index=False, encoding="utf-8")
     removed.to_csv(out / "indian_removed.csv", index=False, encoding="utf-8")
+    # groupby("split").size() counts rows per value of the split column; to_dict turns that into a plain dict.
     counts = split.groupby("split").size().to_dict()  # e.g. {"test": n, "train": n}
+    # removed holds corrupt rows plus duplicate rows, so subtracting the corrupt count leaves the duplicates.
     print(f"removed {len(removed)} (corrupt {len(corrupt)}, duplicates {len(removed) - len(corrupt)})")
+    # groupby('label').size().min() = image count of the smallest class.
     print(f"split: {counts}; min images/class {split.groupby('label').size().min()}")
 
     # Check that the dataset folders and data/class_names.csv list the same classes (needed for prompts).
     # The zero-shot step looks up each folder name in class_names.csv to build text prompts. A mismatch makes
     # it fall back to the folder name for that class (with a WARNING), which usually gives worse prompts.
     # missing = folders without a csv row; extra = csv rows without a folder.
+    # split["label"].unique() = array of distinct class labels; load_class_names returns the class_names.csv table.
     missing, extra = check_class_names(split["label"].unique(), load_class_names(resolve(cfg["paths"]["class_names"])))
     if missing or extra:
         print("WARNING class_names.csv does not match dataset folders:")
@@ -109,6 +119,7 @@ def prepare_food101(cfg: dict, download: bool) -> None:
     Used only for the Indian-vs-Western gap (E4/E6): the same CLIP model is run zero-shot on these
     images. Food-101 is never used for training. Writes splits/food101_subset.csv.
     """
+    # Absolute path of the folder where Food-101 lives (or will be downloaded to).
     root = resolve(cfg["paths"]["food101_root"])
     # Optionally download Food-101 with torchvision (imported here so it is only needed for this step).
     if download:
@@ -118,10 +129,13 @@ def prepare_food101(cfg: dict, download: bool) -> None:
         Food101(str(root), split="test", download=True)
     # Pick n_classes classes and per_class test images each, using the config seed.
     # The first return value (the class folder root) is not needed here, hence "_".
+    # df is a DataFrame (n_classes * per_class rows, columns relpath, label).
     _, df = food101_subset(root, cfg["food101"]["n_classes"], cfg["food101"]["per_class"], cfg["seed"])
+    # Assigning one string to a new column fills every row with it.
     df["split"] = "test"  # Food-101 is only used for testing (zero-shot), never for training
     # Save the subset list next to the Indian split.
     out = resolve(cfg["paths"]["splits"]) / "food101_subset.csv"
+    # to_csv writes the table; index=False leaves out the row-number column.
     df.to_csv(out, index=False, encoding="utf-8")
     print(f"food101 subset: {len(df)} images, {df['label'].nunique()} classes -> {out}")
 

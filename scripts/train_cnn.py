@@ -26,6 +26,7 @@ from pathlib import Path
 # (adds <repo>/src to Python's import path so "import foodclip" works)
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+# numpy: index arrays and masks. torch: model, optimiser, DataLoader and checkpoint saving.
 import numpy as np  # noqa: E402
 import torch  # noqa: E402
 
@@ -51,23 +52,28 @@ def main() -> None:
     # Read options and config; fix the seed so the run can be repeated.
     p = base_parser(__doc__)
     p.add_argument("--run-name", default="baseline")  # label stored in every result row and the checkpoint name
+    # parse_args reads sys.argv into a namespace; config_from_args loads the YAML and applies --set overrides.
     args = p.parse_args()
     cfg = config_from_args(args)
     c = cfg["cnn"]  # shortcut to the CNN hyperparameters (epochs, lr, batch size, image size, ...)
     set_seed(cfg["seed"])
+    # torch.device("cuda") if a GPU is available, otherwise torch.device("cpu").
     device = get_device()
 
     # Load the Indian split and find the row indices of train and test images.
     # paths: list of image file paths; df: table with split ("train"/"test") and y (class number);
     # classes: list of class names, where position = class number.
     paths, df, classes = load_dataset(cfg, "indian")
+    # paths has shape (n_images,).
     paths = np.asarray(paths, dtype=object)  # object array so we can index it with an index array
     y = df["y"].to_numpy()  # integer class labels, shape (n_images,)
     # np.nonzero(mask)[0] turns a True/False mask into the list of positions where it is True.
+    # df["split"].to_numpy() == "train" is a True/False array (n_images,); train_idx and test_idx are 1-D integer arrays.
     train_idx = np.nonzero(df["split"].to_numpy() == "train")[0]
     test_idx = np.nonzero(df["split"].to_numpy() == "test")[0]
     # Hold out part of train as validation; it picks the best epoch, so the test set is never used for choices.
     # Numbers: 2,029 training images = 2,254 images in the train split minus 225 validation images (val_fraction 0.1).
+    # train_val_split returns two row-number arrays (train part, validation part), stratified by class.
     tr_idx, val_idx = train_val_split(train_idx, y, c["val_fraction"], len(classes), cfg["seed"])
 
     def loader(idx, train):
@@ -81,11 +87,13 @@ def main() -> None:
                                            num_workers=c["num_workers"], pin_memory=device.type == "cuda")
 
     # Build the model, AdamW optimiser, cosine learning-rate schedule and mixed-precision scaler (GPU only).
+    # Training loader augments and shuffles; validation and test loaders do neither (see loader above).
     train_dl, val_dl, test_dl = loader(tr_idx, True), loader(val_idx, False), loader(test_idx, False)
     # A fresh randomly-initialised network with one output per class; .to(device) moves it to GPU/CPU.
     model = SmallResNet(len(classes)).to(device)
     # AdamW updates the weights from gradients; weight_decay is a small penalty on large weights (regularisation).
     opt = torch.optim.AdamW(model.parameters(), lr=c["lr"], weight_decay=c["weight_decay"])
+    # CosineAnnealingLR follows half a cosine wave from lr down to ~0 over T_max sched.step() calls (one per epoch here).
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=c["epochs"])  # lr falls to ~0 at the last epoch
     # GradScaler avoids tiny float16 gradients rounding to zero in mixed precision; disabled on CPU.
     scaler = torch.amp.GradScaler("cuda", enabled=device.type == "cuda")
@@ -93,6 +101,7 @@ def main() -> None:
     # Path where the best model weights are saved during training.
     # checkpoints/ is gitignored; the file name includes the run name so runs do not overwrite each other.
     ckpt = resolve(cfg["paths"]["checkpoints"]) / f"cnn_{args.run_name}.pt"
+    # Create the checkpoints folder (and parents) if it is missing; exist_ok avoids an error if it exists.
     ckpt.parent.mkdir(parents=True, exist_ok=True)
     history, best = [], -1.0  # history: one dict per epoch; best: best validation accuracy so far
     # Training loop: one pass over the train data per epoch, then measure validation accuracy.
@@ -101,6 +110,7 @@ def main() -> None:
         loss, train_acc = train_one_epoch(model, train_dl, opt, device, scaler)
         sched.step()  # move the learning rate along the cosine curve (once per epoch)
         # Validation: predict without updating weights; scores are class scores per validation image.
+        # val_scores: NumPy (n_val, n_classes); val_y: NumPy (n_val,) true labels.
         val_scores, val_y = predict(model, val_dl, device)
         val_acc = topk_accuracy(val_scores, val_y, 1)  # k=1 means plain accuracy
         # Keep one history row per epoch for the training-curve figure.
@@ -110,10 +120,13 @@ def main() -> None:
         # Save the weights only when validation accuracy improves (best epoch chosen on validation, not test).
         if val_acc > best:
             best = val_acc
+            # state_dict() = dict of all weight tensors by name; torch.save writes it to the checkpoint file.
             torch.save(model.state_dict(), ckpt)
 
     # Reload the best checkpoint and evaluate it once on the test split.
     # The model now holds the LAST epoch's weights, so we load the saved best ones back first.
+    # torch.load reads the saved weight dict (map_location puts the tensors on this device);
+    # load_state_dict copies those values into the model's existing weights.
     model.load_state_dict(torch.load(ckpt, map_location=device))
     scores, test_y = predict(model, test_dl, device)  # scores shape (n_test, n_classes)
     # One summary row with the settings, test metrics and run info (GPU, versions) for traceability.
@@ -125,9 +138,12 @@ def main() -> None:
     # Append results so several runs (e.g. different image sizes) stay in the same CSVs.
     write_rows([row], res / "cnn.csv", append=True)
     write_rows(history, res / "cnn_history.csv", append=True)
-    # argmax(1) = the class with the highest score for each image = the predicted class.
+    # argmax(1) = the class with the highest score for each image = the predicted class, shape (n_test,).
+    # per_class_accuracy returns a DataFrame (columns class, n, accuracy); .assign(run=...) returns a copy with an
+    # extra constant column "run"; to_dict("records") below gives a list of one dict per row for write_rows.
     pc = per_class_accuracy(test_y, scores.argmax(1), classes).assign(run=args.run_name)  # tag rows with run name
     write_rows(pc.to_dict("records"), res / "cnn_per_class.csv", append=True)
+    # Console summary: a dict holding just the three headline metrics from the row.
     print({k: row[k] for k in ("top1", "top5", "macro_f1")})
 
 
