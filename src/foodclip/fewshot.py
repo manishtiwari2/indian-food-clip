@@ -19,7 +19,12 @@ def zero_shot_scores(image_feats: np.ndarray, text_feats: np.ndarray) -> np.ndar
 
 
 def sample_k_shot(y: np.ndarray, k: int, seed: int) -> np.ndarray:
-    """Indices of k random examples per class (all examples if k <= 0 or class is smaller)."""
+    """Indices of k random examples per class (all examples if k <= 0 or class is smaller).
+
+    Input: training labels y, shots per class k, seed. Output: sorted row numbers into the training set.
+    Why: few-shot (E5) asks how accuracy grows with k labelled images per class; the seed makes each
+    draw repeatable and different seeds show how much the choice of shots matters.
+    Used by: scripts/run_fewshot.py."""
     # Own random generator from the seed, so the same seed always picks the same shots.
     rng = np.random.default_rng(seed)
     idx = []

@@ -33,7 +33,11 @@ class BasicBlock(nn.Module):
 
 
 class SmallResNet(nn.Module):
-    """~2.8M parameters. Input 3xHxW (any H, W >= 32)."""
+    """~2.8M parameters. Input 3xHxW (any H, W >= 32).
+
+    A small ResNet trained from scratch (no pretraining) as the E1 baseline to compare against CLIP.
+    Flow: stem -> 4 stages (8 BasicBlocks, more channels and smaller maps each stage) -> global pool ->
+    dropout -> linear layer. Used by: scripts/train_cnn.py."""
 
     def __init__(self, n_classes: int, widths: tuple[int, ...] = (32, 64, 128, 256), dropout: float = 0.3):
         """Build stem, four stages of two BasicBlocks (one stage per width), and a classifier head."""
@@ -57,7 +61,10 @@ class SmallResNet(nn.Module):
 
 
 def train_one_epoch(model, loader, optimizer, device, scaler=None) -> tuple[float, float]:
-    """Train the model for one pass over the loader; return (mean training loss, training accuracy)."""
+    """Train the model for one pass over the loader; return (mean training loss, training accuracy).
+
+    One pass over all training batches = one epoch. Each step: forward, loss, backward (gradients),
+    optimizer update. Used by: scripts/train_cnn.py and scripts/finetune_clip.py."""
     # Training mode: dropout on, batch norm uses batch statistics.
     model.train()
     # Label smoothing 0.1: the target is not 100% on the true class, which reduces overconfidence.
@@ -91,7 +98,9 @@ def train_one_epoch(model, loader, optimizer, device, scaler=None) -> tuple[floa
 
 @torch.no_grad()
 def predict(model, loader, device) -> tuple[np.ndarray, np.ndarray]:
-    """Run the model on every batch; return (scores (n, C), true labels (n,)) as NumPy arrays."""
+    """Run the model on every batch; return (scores (n, C), true labels (n,)) as NumPy arrays.
+
+    No training happens here. The scores go to metrics.summarize. Used by: train_cnn.py, finetune_clip.py."""
     # Eval mode: dropout off, batch norm uses its stored statistics. no_grad saves memory.
     model.eval()
     scores, ys = [], []

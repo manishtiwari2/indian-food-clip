@@ -18,7 +18,11 @@ DEFAULT_CONFIG = REPO_ROOT / "configs" / "default.yaml"
 
 
 def _set_dotted(cfg: dict, dotted: str, raw: str) -> None:
-    """Set one nested config value, e.g. dotted="cnn.epochs", raw="5" -> cfg["cnn"]["epochs"] = 5."""
+    """Set one nested config value, e.g. dotted="cnn.epochs", raw="5" -> cfg["cnn"]["epochs"] = 5.
+
+    How: split the dotted key at ".", walk down the nested dicts (making missing ones), and store the
+    value at the last key. Why: lets users change any setting from the command line without editing YAML.
+    Used by: load_config (private helper)."""
     # Walk down the nested dicts, creating missing levels on the way.
     keys = dotted.split(".")
     node = cfg
@@ -29,7 +33,10 @@ def _set_dotted(cfg: dict, dotted: str, raw: str) -> None:
 
 
 def load_config(path: str | Path | None = None, overrides: list[str] | None = None) -> dict[str, Any]:
-    """YAML path (default configs/default.yaml) and "key.sub=value" overrides in; config dict out."""
+    """YAML path (default configs/default.yaml) and "key.sub=value" overrides in; config dict out.
+
+    How: read the YAML into a dict, then apply each override on top. Why: one place holds every setting,
+    so experiments are reproducible and easy to change. Used by: config_from_args and the tests."""
     # Read the YAML file into a dict and copy it, so changes never touch a shared object.
     with open(path or DEFAULT_CONFIG, encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
@@ -44,13 +51,19 @@ def load_config(path: str | Path | None = None, overrides: list[str] | None = No
 
 
 def resolve(path: str | Path) -> Path:
-    """Relative paths are taken from the repo root, so scripts work from any cwd."""
+    """Relative paths are taken from the repo root, so scripts work from any cwd.
+
+    Path (str or Path) in; absolute Path out. Absolute paths (e.g. Kaggle /kaggle/input/...) pass
+    through unchanged. Used by: data.load_dataset, features.feature_path and most scripts."""
     p = Path(path)
     return p if p.is_absolute() else REPO_ROOT / p
 
 
 def base_parser(description: str) -> argparse.ArgumentParser:
-    """Script description in; argument parser with the shared --config and --set options out."""
+    """Script description in; argument parser with the shared --config and --set options out.
+
+    Why: every script needs the same two options, so they are defined once here. A script adds its own
+    extra options to the returned parser. Used by: every file in scripts/."""
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("--config", default=None, help="YAML config (default: configs/default.yaml)")
     # --set takes any number of KEY=VALUE items, e.g. --set cnn.epochs=5 seed=1
@@ -59,5 +72,7 @@ def base_parser(description: str) -> argparse.ArgumentParser:
 
 
 def config_from_args(args: argparse.Namespace) -> dict[str, Any]:
-    """Parsed command-line args in; final config dict (file + overrides) out."""
+    """Parsed command-line args in; final config dict (file + overrides) out.
+
+    A thin wrapper so scripts do not repeat args.config / args.set. Used by: every file in scripts/."""
     return load_config(args.config, args.set)

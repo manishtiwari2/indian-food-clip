@@ -14,7 +14,10 @@ from sklearn.metrics import f1_score
 
 
 def topk_accuracy(scores: np.ndarray, y: np.ndarray, k: int) -> float:
-    """Scores (n, C) and true labels (n,) in; share of images whose true class is in the k best scores out."""
+    """Scores (n, C) and true labels (n,) in; share of images whose true class is in the k best scores out.
+
+    Top-1 = the best guess is right; top-5 = the true class is among the five best guesses. Returns a
+    number between 0 and 1. Used by: summarize (and so by every experiment)."""
     # k cannot be larger than the number of classes.
     k = min(k, scores.shape[1])
     # Sort each row from highest to lowest score and keep the first k class indices.
@@ -41,7 +44,10 @@ def summarize(scores: np.ndarray, y: np.ndarray) -> dict[str, float]:
 
 
 def per_class_accuracy(y: np.ndarray, pred: np.ndarray, names: Sequence[str]) -> pd.DataFrame:
-    """True and predicted labels in; table of (class, n, accuracy) out, worst class first."""
+    """True and predicted labels in; table of (class, n, accuracy) out, worst class first.
+
+    Why: overall accuracy can hide classes that fail completely. Needs class names in index order.
+    Used by: the scripts that write per-class result files and by make_figures.py."""
     rows = []
     # For each class: accuracy = share of its test images that were predicted as that class.
     for c, name in enumerate(names):
@@ -53,7 +59,10 @@ def per_class_accuracy(y: np.ndarray, pred: np.ndarray, names: Sequence[str]) ->
 
 
 def top_confusions(y: np.ndarray, pred: np.ndarray, names: Sequence[str], n: int = 20) -> pd.DataFrame:
-    """True and predicted labels in; the n most frequent (true, predicted) mistakes with their count out."""
+    """True and predicted labels in; the n most frequent (true, predicted) mistakes with their count out.
+
+    Why: shows which dishes the model mixes up (e.g. two similar curries), useful for error analysis
+    in the report. Used by: the scripts that write confusion files."""
     # Keep only wrong predictions and turn class indices into class names.
     wrong = y != pred
     pairs = pd.DataFrame({"true": np.asarray(names)[y[wrong]], "predicted": np.asarray(names)[pred[wrong]]})

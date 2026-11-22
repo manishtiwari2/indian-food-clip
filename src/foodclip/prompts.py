@@ -36,7 +36,12 @@ LANGUAGES = ("english", "hindi_roman", "hindi_devanagari")
 
 
 def build_prompts(names: Sequence[str], template: str) -> list[list[str]]:
-    """One list of prompt strings per class."""
+    """One list of prompt strings per class.
+
+    Input: class names (in one language) and a template name from TEMPLATES. Output: a list with one
+    inner list per class; each inner list has one filled sentence per template sentence, e.g.
+    "plain" gives [["poha"], ...]. Why: CLIP's text encoder reads sentences, and the wording changes
+    accuracy (that is experiment E4). Used by: scripts/run_zeroshot.py and scripts/finetune_clip.py."""
     # Stop early with a clear message if the template name is wrong.
     if template not in TEMPLATES:
         raise KeyError(f"unknown template {template!r}; choose from {sorted(TEMPLATES)}")
@@ -45,10 +50,16 @@ def build_prompts(names: Sequence[str], template: str) -> list[list[str]]:
 
 
 def valid_combo(language: str, template: str) -> bool:
-    """hindi_native templates only make sense with Devanagari names."""
+    """hindi_native templates only make sense with Devanagari names.
+
+    Returns False for the combination (Latin or English name inside a Hindi sentence), True otherwise,
+    so run_zeroshot.py can skip meaningless language/template pairs."""
     return template != "hindi_native" or language == "hindi_devanagari"
 
 
 def food101_name(label: str) -> str:
-    """Food-101 folder label in ("apple_pie"), readable class name for prompts out ("apple pie")."""
+    """Food-101 folder label in ("apple_pie"), readable class name for prompts out ("apple pie").
+
+    Why: Food-101 folders use underscores, but CLIP was trained on normal text, so spaces read better.
+    Used by: scripts/run_zeroshot.py for the Western side of the bias test."""
     return label.replace("_", " ")

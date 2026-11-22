@@ -19,7 +19,9 @@ from .data import ImageDataset
 
 
 def model_tag(model_cfg: dict) -> str:
-    """Model config in; short id like "ViT-B-32__openai" (architecture + pretrained weights) out."""
+    """Model config in; short id like "ViT-B-32__openai" (architecture + pretrained weights) out.
+
+    Why: used in file names so features of different models never overwrite each other."""
     return f"{model_cfg['name']}__{model_cfg['pretrained']}"
 
 
@@ -29,7 +31,11 @@ def feature_path(cfg: dict, dataset: str, model_cfg: dict) -> Path:
 
 
 def load_clip(model_cfg: dict, device: torch.device):
-    """Model config in; (CLIP model in eval mode, image preprocessing, text tokenizer) out."""
+    """Model config in; (CLIP model in eval mode, image preprocessing, text tokenizer) out.
+
+    The preprocessing resizes/crops/normalises images the way this CLIP model was trained; the tokenizer
+    turns text into token ids. eval() switches off training-only behaviour. Weights are downloaded the
+    first time. Used by: extract_features.py, run_zeroshot.py, finetune_clip.py."""
     # Imported here so the rest of the package (and the tests) work without open_clip installed.
     import open_clip
 
@@ -65,7 +71,11 @@ def encode_images(model, preprocess, paths: Sequence[Path], device: torch.device
 
 @torch.no_grad()
 def encode_text(model, tokenizer, prompts_per_class: list[list[str]], device: torch.device) -> np.ndarray:
-    """(C, D): mean of the normalised embeddings of each class's prompts, renormalised."""
+    """(C, D): mean of the normalised embeddings of each class's prompts, renormalised.
+
+    Input: prompts_per_class as built by prompts.build_prompts. Output: one unit-length text vector per
+    class (the "zero-shot classifier"). Averaging several prompts is prompt ensembling.
+    Used by: run_zeroshot.py and finetune_clip.py (head start values)."""
     out = []
     # For each class: tokenize and encode all its prompts, then normalise each one.
     for prompts in prompts_per_class:
@@ -77,14 +87,19 @@ def encode_text(model, tokenizer, prompts_per_class: list[list[str]], device: to
 
 
 def save_features(path: Path, feats: np.ndarray, relpaths: Sequence[str]) -> None:
-    """Features (n, D) and their image relpaths in; compressed .npz file written."""
+    """Features (n, D) and their image relpaths in; compressed .npz file written.
+
+    Used by: scripts/extract_features.py, after encode_images."""
     # relpaths are saved too, so load_features can check the order later.
     path.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(path, feats=feats, relpath=np.asarray(relpaths, dtype=str))
 
 
 def load_features(path: Path, relpaths: Sequence[str]) -> np.ndarray:
-    """Load cached features and check they are in the same order as the split CSV."""
+    """Load cached features and check they are in the same order as the split CSV.
+
+    Raises ValueError if the saved image list differs from relpaths (stale cache).
+    Used by: run_zeroshot.py and run_fewshot.py."""
     data = np.load(path, allow_pickle=False)  # no pickle: safer, and plain arrays do not need it
     # Row i must belong to image i of the split; otherwise labels and features would not match.
     if list(data["relpath"]) != list(relpaths):

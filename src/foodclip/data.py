@@ -22,7 +22,10 @@ IMAGENET_STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 
 
 def normalize_label(name: str) -> str:
-    """Folder name in, clean label out ("Butter Chicken" -> "butter_chicken"), so names match everywhere."""
+    """Folder name in, clean label out ("Butter Chicken" -> "butter_chicken"), so names match everywhere.
+
+    Why: folder names, class_names.csv and split CSVs must use one spelling or labels would not match.
+    Used by: list_images, check_class_names, load_class_names."""
     return name.strip().lower().replace(" ", "_").replace("-", "_")
 
 
@@ -64,7 +67,9 @@ def list_images(root: str | Path) -> tuple[Path, pd.DataFrame]:
 
 
 def is_valid_image(path: str | Path) -> bool:
-    """Image path in; False if the file is broken or cannot be decoded, so corrupt files can be removed."""
+    """Image path in; False if the file is broken or cannot be decoded, so corrupt files can be removed.
+
+    Why: scraped data has broken files that would crash training later. Used by: scripts/prepare_data.py."""
     try:
         # verify() checks the file structure; it leaves the image unusable, so the file is opened again.
         with Image.open(path) as im:
@@ -94,7 +99,9 @@ def phash_bits(paths: Sequence[str | Path]) -> np.ndarray:
 
 
 def hamming_matrix(a: np.ndarray, b: np.ndarray) -> np.ndarray:
-    """Bit matrices a (n, 64) and b (m, 64) in; (n, m) Hamming distances (number of different bits) out."""
+    """Bit matrices a (n, 64) and b (m, 64) in; (n, m) Hamming distances (number of different bits) out.
+
+    Small distance = similar images. Used by: dedup."""
     # int32 so the matrix products below do not overflow.
     a = a.astype(np.int32)
     b = b.astype(np.int32)
@@ -208,7 +215,11 @@ def load_class_names(path: str | Path) -> pd.DataFrame:
 
 
 class SimpleTransform:
-    """Torch-only image transform for the CNN (no torchvision needed)."""
+    """Torch-only image transform for the CNN (no torchvision needed).
+
+    Train mode uses random crop, flip and optional colour jitter (augmentation: the model sees slightly
+    different images each epoch, which reduces overfitting). Test mode is deterministic (resize + center
+    crop). Both end with ImageNet normalisation. Used by: scripts/train_cnn.py through ImageDataset."""
 
     def __init__(self, size: int, train: bool, color_jitter: float = 0.0):
         """size = output side in pixels; train=True adds random augmentation, False gives a fixed center crop."""
@@ -251,7 +262,10 @@ class SimpleTransform:
 
 
 class ImageDataset(torch.utils.data.Dataset):
-    """PyTorch dataset: image paths + int labels + a transform; item i = (transformed image, label)."""
+    """PyTorch dataset: image paths + int labels + a transform; item i = (transformed image, label).
+
+    A DataLoader calls __len__ and __getitem__ to build batches. Used by: train_cnn.py, finetune_clip.py
+    and features.encode_images (with CLIP's preprocess as the transform)."""
 
     def __init__(self, paths: Sequence[str | Path], labels: Sequence[int], transform: Callable):
         """Store paths, labels and the transform (CNN transform or CLIP preprocess)."""
@@ -277,7 +291,8 @@ SPLIT_FILES = {"indian": "indian_split.csv", "food101": "food101_subset.csv"}
 
 def load_dataset(cfg: dict, name: str) -> tuple[list[Path], pd.DataFrame, list[str]]:
     """Return (absolute image paths, split df, sorted class list) for 'indian' or 'food101'.
-    Class index = position in the sorted class list (same everywhere)."""
+    Class index = position in the sorted class list (same everywhere).
+    Used by every experiment script; reads the committed CSV in splits/ so everyone gets the same split."""
     # Imported inside the function (only needed here).
     from .config import resolve
 
@@ -297,7 +312,11 @@ def load_dataset(cfg: dict, name: str) -> tuple[list[Path], pd.DataFrame, list[s
 
 def train_val_split(train_idx: np.ndarray, y: np.ndarray, val_fraction: float, n_classes: int,
                     seed: int) -> tuple[np.ndarray, np.ndarray]:
-    """Hold out a stratified validation part of the training split (used to pick the best epoch)."""
+    """Hold out a stratified validation part of the training split (used to pick the best epoch).
+
+    Input: training row numbers, labels y, validation share, class count, seed. Output: (train_idx,
+    val_idx). Why: choosing the best epoch on the test set would be cheating, so a slice of the training
+    data is used instead. Used by: train_cnn.py and finetune_clip.py."""
     from sklearn.model_selection import train_test_split
 
     # Validation size; stratify by class only if there is room for at least one image per class.

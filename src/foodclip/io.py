@@ -16,7 +16,11 @@ import torch
 
 
 def set_seed(seed: int) -> None:
-    """Seed in, nothing out: seeds Python, NumPy and PyTorch (CPU + GPU) so runs can be repeated."""
+    """Seed in, nothing out: seeds Python, NumPy and PyTorch (CPU + GPU) so runs can be repeated.
+
+    Why: weight start values, shuffling and augmentation are random. With the same seed they repeat,
+    so the same code gives (nearly) the same numbers. GPU kernels can still differ slightly.
+    Used by: train_cnn.py, finetune_clip.py and other scripts, with the seed taken from the config."""
     # Each library has its own random generator, so each one is seeded.
     random.seed(seed)
     np.random.seed(seed)
@@ -25,12 +29,18 @@ def set_seed(seed: int) -> None:
 
 
 def get_device() -> torch.device:
-    """Return the GPU device if one is available, else the CPU."""
+    """Return the GPU device if one is available, else the CPU.
+
+    Why: the same code then runs on a laptop (CPU) and on Kaggle (GPU) with no change.
+    Used by: scripts that train a CNN or run CLIP."""
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def run_meta() -> dict[str, str]:
-    """Stored with every result row so each number can be traced to a run."""
+    """Stored with every result row so each number can be traced to a run.
+
+    Returns a dict with run time, torch version, Python version and device name. Why: if two results
+    differ, these fields help find out which environment produced each. Used by: result-writing scripts."""
     # GPU name (or "cpu"), plus time, torch version and Python version of this run.
     gpu = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu"
     return {"run_at": dt.datetime.now().isoformat(timespec="seconds"), "torch": torch.__version__,

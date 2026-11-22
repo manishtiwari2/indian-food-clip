@@ -11,7 +11,12 @@ from torch import nn
 
 
 class ClipClassifier(nn.Module):
-    """CLIP image encoder + linear head initialised from class text embeddings, so epoch 0 = zero-shot."""
+    """CLIP image encoder + linear head initialised from class text embeddings, so epoch 0 = zero-shot.
+
+    How: image -> CLIP visual encoder -> normalised feature (D numbers) -> linear head -> C class scores.
+    Why: starting from the text embeddings means fine-tuning begins at the zero-shot accuracy and only
+    improves from there, instead of learning a head from random weights.
+    Used by: scripts/finetune_clip.py (E7)."""
 
     def __init__(self, visual: nn.Module, text_feats: np.ndarray, logit_scale: float):
         """Take the CLIP image encoder, (C, D) class text embeddings and CLIP's logit scale; build the model."""
