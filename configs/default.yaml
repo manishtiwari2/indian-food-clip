@@ -82,15 +82,18 @@ fewshot:
   shots: [1, 2, 4, 8, 16, 0]         # 0 = all training images
   # Repeating with several seeds averages out which shots happened to be sampled.
   seeds: [0, 1, 2]                   # each shot level is repeated with these seeds
-  # Regularisation strength of the logistic-regression probe.
-  C: 0.316                           # inverse L2 strength for logistic regression
-  # Class weighting option; see decision D12 in docs/DECISIONS.md.
+  # Regularisation strength of the logistic-regression probe. Set by the lead; reason not recorded in the repo.
+  C: 0.316                          # inverse L2 strength for logistic regression
+  # Class weighting option; see decision D12 in docs/DECISIONS.md. Post-hoc: added after a first run without
+  # weights and after looking at the test accuracy.
   class_weight: balanced             # balanced or null (null = no weights, the old behaviour; see D12)
 
 # E7: fine-tune the whole CLIP image encoder (used by finetune_clip.py).
 finetune:                            # D13: full fine-tune of the image encoder; head starts as zero-shot
   # Which CLIP model is fine-tuned.
   model: {name: ViT-B-16, pretrained: openai}
+  # Head language and template were chosen from the zero-shot test results (D13, post-hoc). The hyperparameters
+  # below are fixed; no hyperparameter search is recorded in the repo. Best epoch: picked on the validation images.
   language: hindi_roman              # head init = best ViT-B/16 zero-shot setting (Section 5.2)
   template: food                     # prompt template used to build the starting head
   # Short schedule: the notebook notes about 10 min on a T4 for this run.

@@ -47,7 +47,8 @@ def main() -> None:
     cfg = config_from_args(args)
     fs = cfg["fewshot"]  # shots list, seeds list, regularisation strength C, class_weight
     # class_weight "balanced" only changes the "all" runs (19-34 train images per class); for k<=16 every class
-    # has k images, so all weights are 1. Added after a first run without weights (D12); post-hoc, see below.
+    # has k images, so all weights are 1. We added the weights after a first run without them, where "all" was
+    # worse than k=16, and after looking at the test accuracy (D12). So it is a post-hoc choice.
     class_weight = fs.get("class_weight")  # "balanced" or None; a missing key keeps the old behaviour
     # Load the Indian split and make boolean masks for train and test rows.
     _, df, classes = load_dataset(cfg, "indian")
@@ -73,6 +74,7 @@ def main() -> None:
             idx = sample_k_shot(y_tr, k, seed)
             # Train logistic regression on those features; scores are class probabilities (n_test, n_classes).
             # fs["C"] is the inverse regularisation strength (smaller C = stronger regularisation).
+            # Its value (0.316) was set by the lead; reason not recorded in the repo.
             scores = linear_probe(x_tr[idx], y_tr[idx], x_te, len(classes), fs["C"], seed, class_weight)
             # One result row; shots 0 is written as "all".
             rows.append({"model": m["name"], "pretrained": m["pretrained"], "shots": k if k > 0 else "all",

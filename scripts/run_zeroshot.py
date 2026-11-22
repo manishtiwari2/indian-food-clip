@@ -109,6 +109,8 @@ def main() -> None:
                           if valid_combo(lang, t)]
             else:
                 combos = [("english", t) for t in FOOD101_TEMPLATES]
+            # Every setting is scored on the test split. Picking the best setting afterwards (as the report and
+            # make_figures.py do) is a choice made on the test set, so it favours zero-shot.
             for lang, template in combos:
                 # Build prompts from class names, encode them, and score each image against each class.
                 names = indian_names(cfg, classes, lang) if dataset == "indian" else [food101_name(c) for c in classes]

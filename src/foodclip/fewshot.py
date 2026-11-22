@@ -44,6 +44,7 @@ def linear_probe(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, n
 
     Trained on frozen CLIP image features: CLIP itself is not changed, only this linear classifier is learned.
     C is the inverse regularisation strength (smaller C = stronger L2 penalty, less overfitting on few shots).
+    The default 0.316 was set by the lead; reason not recorded in the repo.
     class_weight: None (default, no weights) or "balanced" (passed to sklearn; weight 1 for every class
     when all classes have the same number of training images)."""
     # Fit logistic regression on the training features and labels.

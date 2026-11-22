@@ -67,6 +67,7 @@ def main() -> None:
     train_idx = np.nonzero(df["split"].to_numpy() == "train")[0]
     test_idx = np.nonzero(df["split"].to_numpy() == "test")[0]
     # Hold out part of train as validation; it picks the best epoch, so the test set is never used for choices.
+    # Numbers: 2,029 training images = 2,254 images in the train split minus 225 validation images (val_fraction 0.1).
     tr_idx, val_idx = train_val_split(train_idx, y, c["val_fraction"], len(classes), cfg["seed"])
 
     def loader(idx, train):

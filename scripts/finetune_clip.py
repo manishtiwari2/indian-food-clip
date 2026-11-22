@@ -1,7 +1,12 @@
 """D13 / E7: full fine-tune of one CLIP image encoder on the Indian train split, evaluate on test.
 
 The head starts as the zero-shot classifier (config finetune.language + finetune.template), so epoch 0 is
-zero-shot. The best epoch is picked on a validation part of the train split, never on the test set.
+zero-shot. The best epoch is picked on a validation part of the train split, and the test set is used once
+at the end.
+
+Post-hoc choices (D13, as in the report): the head language and template (romanised Hindi names, food template)
+were chosen from the zero-shot test results. The hyperparameters are fixed; no hyperparameter search is
+recorded in the repo. It is a single run with one seed.
 
 What it does: unlike the linear probe (E5), all image-encoder weights are trained here. The text encoder is
 used once to build the starting head and is then dropped.
