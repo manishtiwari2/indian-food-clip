@@ -8,6 +8,15 @@ Figures: cnn_curves, cnn_worst_classes ("CNN baseline"); zeroshot_language ("Zer
 zeroshot_bias, worst_classes ("Indian vs Western bias"); fewshot_curve ("How many shots close the gap?").
 
 Writes report/figures/*.pdf and results/gap.csv. Each figure is skipped if its CSV is missing.
+
+Reads (all in results/): zeroshot.csv, zeroshot_per_class.csv (from run_zeroshot.py), fewshot.csv (from
+run_fewshot.py), cnn.csv, cnn_history.csv, cnn_per_class.csv (from train_cnn.py). Run it last.
+
+Why it only reads CSVs: every number in a figure must come from a real run, so this script never
+recomputes or types in a result. If a CSV is missing the figure is skipped instead of faked.
+
+Vocabulary: top-1 = the right class is the model's first guess; "shots" = labelled training images per
+class; "gap" = Western (Food-101) accuracy minus Indian accuracy for the same model.
 """
 from __future__ import annotations
 
@@ -41,37 +50,48 @@ def _read(path: Path) -> pd.DataFrame | None:
 
 
 def fig_bias(zs: pd.DataFrame, out: Path) -> None:
-    """Bar chart of zero-shot top-1 per model: Indian (two name languages) vs Food-101, same 'food' template."""
+    """Bar chart of zero-shot top-1 per model: Indian (two name languages) vs Food-101, same 'food' template.
+
+    Input zs = rows of results/zeroshot.csv; out = figures folder. Output: zeroshot_bias.pdf.
+    This is the main "Indian vs Western" picture: if the Food-101 bars are taller than the Indian ones,
+    CLIP knows Western food better. Devanagari is left out here; fig_language covers all languages.
+    """
     # Use only the "food" template, which is the same wording for both datasets (fair comparison).
     sub = zs[zs["template"] == "food"]
-    # One bar group per (label, row mask) pair.
+    # One bar group per (label, row mask) pair; a mask is a True/False column that selects matching CSV rows.
     bars = [("Indian: English description", (sub.dataset == "indian") & (sub.language == "english")),
             ("Indian: romanised Hindi name", (sub.dataset == "indian") & (sub.language == "hindi_roman")),
             ("Food-101: English name", (sub.dataset == "food101") & (sub.language == "english"))]
     models = list(dict.fromkeys(sub["model"]))  # unique model names, keeping first-seen order
     w = 0.8 / len(bars)  # bar width so each model's group fills 80% of its slot
-    fig, ax = plt.subplots(figsize=(6, 3))
+    fig, ax = plt.subplots(figsize=(6, 3))  # figure size in inches (width, height)
     # Draw one set of bars per group, shifted sideways by i * w.
     for i, (label, mask) in enumerate(bars):
+        # One value per model; .mean() averages if the CSV has more than one row for the same setting.
         vals = [sub[mask & (sub.model == m)]["top1"].mean() for m in models]
         ax.bar(np.arange(len(models)) + i * w, vals, w, label=label)
     # Axis labels, legend outside the plot, title, then save.
     ax.set_xticks(np.arange(len(models)) + w, models)  # tick under the middle bar
     ax.set_ylabel("zero-shot top-1")
-    ax.set_ylim(0, 1)
+    ax.set_ylim(0, 1)  # accuracy is a fraction between 0 and 1; a fixed range keeps figures comparable
     ax.legend(fontsize=7, loc="upper left", bbox_to_anchor=(1.01, 1))
     ax.set_title("Indian vs Western zero-shot accuracy\n(template: 'a photo of {}, a type of food.')", fontsize=9)
-    fig.savefig(out / "zeroshot_bias.pdf")
-    plt.close(fig)
+    fig.savefig(out / "zeroshot_bias.pdf")  # PDF is vector graphics, so it stays sharp in the LaTeX report
+    plt.close(fig)  # free the figure's memory
 
 
 def fig_language(zs: pd.DataFrame, out: Path) -> None:
-    """Bar chart of the best zero-shot top-1 per model and prompt language on the Indian test set."""
+    """Bar chart of the best zero-shot top-1 per model and prompt language on the Indian test set.
+
+    Input zs = results/zeroshot.csv rows. Output: zeroshot_language.pdf. Shows whether English,
+    romanised Hindi or Devanagari names work best. "Best over templates" means each bar uses the most
+    favourable prompt wording, so the language comparison is not hurt by one bad template.
+    """
     # Table: rows = model, columns = language, value = best top-1 over all templates.
     sub = zs[zs["dataset"] == "indian"]
     table = sub.pivot_table(index="model", columns="language", values="top1", aggfunc="max")
     # Plot the table as grouped bars and save.
-    ax = table.plot.bar(figsize=(6, 3), rot=0)
+    ax = table.plot.bar(figsize=(6, 3), rot=0)  # rot=0 keeps the model names horizontal
     ax.set_ylabel("best zero-shot top-1 over templates")
     ax.set_ylim(0, 1)
     ax.set_title("Prompt language (Indian test set)")
@@ -80,7 +100,14 @@ def fig_language(zs: pd.DataFrame, out: Path) -> None:
 
 
 def fig_fewshot_and_gap(fsh: pd.DataFrame, zs: pd.DataFrame | None, out: Path, res: Path) -> None:
-    """Draw the few-shot curve per model and write the E6 gap table (results/gap.csv)."""
+    """Draw the few-shot curve per model and write the E6 gap table (results/gap.csv).
+
+    Inputs: fsh = results/fewshot.csv rows (linear probe, columns include shots, seed, top1, n_train);
+    zs = zero-shot rows (or None); out = figures folder; res = results folder.
+    Outputs: fewshot_curve.pdf and gap.csv. Answers the project question "how many labelled shots
+    close the Indian-vs-Western gap?": the answer is the smallest k whose mean accuracy reaches the
+    model's Food-101 zero-shot accuracy, or "not reached".
+    """
     # Keep only the class-weighted rows when they exist, so the curve uses one setting.
     fsh = fsh.copy()
     if "class_weight" in fsh.columns and (fsh["class_weight"] == "balanced").any():
@@ -88,7 +115,7 @@ def fig_fewshot_and_gap(fsh: pd.DataFrame, zs: pd.DataFrame | None, out: Path, r
     n_all =fsh.loc[fsh.shots == "all", "n_train"].max()  # number of training images in the "all" run
     fsh["k"] = fsh["shots"].map(lambda s: np.nan if s == "all" else int(s))  # numeric shots; "all" -> NaN
     fig, ax = plt.subplots(figsize=(6, 3.2))
-    gap_rows = []
+    gap_rows = []  # one dict per model; becomes results/gap.csv
     # One curve (and one gap-table row) per model, each in its own colour.
     for i, (model, g) in enumerate(fsh.groupby("model", sort=False)):
         # Mean and std of top-1 over seeds for each k; error bars show the spread across seeds.
@@ -107,6 +134,7 @@ def fig_fewshot_and_gap(fsh: pd.DataFrame, zs: pd.DataFrame | None, out: Path, r
             if not np.isnan(west):
                 ax.axhline(west, color=color, ls="--", lw=0.8)
         # Shot counts whose mean accuracy reaches the Western target (empty if there is no target).
+        # (An old fewshot.csv without the class_weight column also works: the check above is skipped.)
         reached = curve[curve["mean"] >= west]["k"] if not np.isnan(west) else pd.Series(dtype=float)
         # Best Indian zero-shot top-1 over all languages and templates for this model.
         ind_zs = (zs[(zs.dataset == "indian") & (zs.model == model)]["top1"].max() if zs is not None else np.nan)
@@ -129,11 +157,16 @@ def fig_fewshot_and_gap(fsh: pd.DataFrame, zs: pd.DataFrame | None, out: Path, r
 
 
 def fig_worst_classes(pc: pd.DataFrame, zs: pd.DataFrame | None, out: Path, n: int = 20) -> None:
-    """Hardest Indian dishes for the model with the best Indian top-1 (romanised Hindi name, 'food' template)."""
+    """Hardest Indian dishes for the model with the best Indian top-1 (romanised Hindi name, 'food' template).
+
+    Inputs: pc = results/zeroshot_per_class.csv (one row per model/setting/class), zs = results/zeroshot.csv
+    (used to choose the model), n = how many dishes to show. Output: worst_classes.pdf.
+    Useful for the error analysis: it names the dishes CLIP cannot tell apart or does not know.
+    """
     # Per-class rows for the Indian set with romanised Hindi names and the "food" template.
     sub = pc[(pc.dataset == "indian") & (pc.template == "food") & (pc.language == "hindi_roman")]
     if sub.empty:
-        return
+        return  # nothing to plot for this setting, so skip the figure
     # Choose the model with the best overall top-1 for this setting (fallback: best mean per-class accuracy).
     if zs is not None:
         best = zs[(zs.dataset == "indian") & (zs.template == "food") & (zs.language == "hindi_roman")]
@@ -154,7 +187,11 @@ def fig_worst_classes(pc: pd.DataFrame, zs: pd.DataFrame | None, out: Path, n: i
 
 
 def fig_cnn(hist: pd.DataFrame, out: Path) -> None:
-    """Validation accuracy per epoch for every CNN run (train accuracy dashed)."""
+    """Validation accuracy per epoch for every CNN run (train accuracy dashed).
+
+    Input hist = results/cnn_history.csv (columns run, epoch, train_acc, val_acc). Output: cnn_curves.pdf.
+    Shows how the from-scratch CNN baseline (E1) learns and whether it overfits.
+    """
     fig, ax = plt.subplots(figsize=(6, 3.2))
     # One colour per run: solid line = validation, dashed line = train; a big gap means overfitting.
     for i, (run, h) in enumerate(hist.groupby("run", sort=False)):
@@ -172,7 +209,11 @@ def fig_cnn(hist: pd.DataFrame, out: Path) -> None:
 
 
 def fig_cnn_worst(summary: pd.DataFrame, per_class: pd.DataFrame, out: Path, n: int = 15) -> None:
-    """Hardest and easiest classes for the CNN run with the best test top-1."""
+    """Hardest and easiest classes for the CNN run with the best test top-1.
+
+    Inputs: summary = results/cnn.csv (one row per run), per_class = results/cnn_per_class.csv.
+    Output: cnn_worst_classes.pdf. Tells us which dishes even a trained-on-this-data CNN finds hard.
+    """
     # Pick the best run, sort its classes by accuracy, and take the n lowest and n highest.
     run = summary.loc[summary["top1"].idxmax(), "run"]
     pc = per_class[per_class.run == run].sort_values("accuracy")
@@ -194,12 +235,16 @@ def fig_cnn_worst(summary: pd.DataFrame, per_class: pd.DataFrame, out: Path, n: 
 
 
 def main() -> None:
-    """Build each figure whose result CSV exists, plus the gap table."""
+    """Build each figure whose result CSV exists, plus the gap table.
+
+    Each block below follows the same pattern: read a CSV (None if missing) and, if present, call the
+    matching drawing function. This is why the script can be run at any time, even with partial results.
+    """
     # Read config and create the figures folder.
     cfg = config_from_args(base_parser(__doc__).parse_args())
     res, out = resolve(cfg["paths"]["results"]), resolve(cfg["paths"]["figures"])
     out.mkdir(parents=True, exist_ok=True)
-    # Zero-shot figures (E2-E4).
+    # Zero-shot figures (E2-E4). zs is also reused below to find the Western target and the best model.
     zs = _read(res / "zeroshot.csv")
     if zs is not None:
         fig_bias(zs, out)
