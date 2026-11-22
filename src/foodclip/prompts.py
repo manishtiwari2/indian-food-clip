@@ -15,6 +15,7 @@ from typing import Sequence
 
 # Template name -> list of sentences; "{}" is replaced by the class name. With more than one sentence
 # (e.g. "ensemble"), the text embeddings of all sentences are averaged into one class embedding.
+# Dict keyed by template name; each value is a list of sentence patterns.
 TEMPLATES: dict[str, list[str]] = {
     "plain": ["{}"],  # the class name alone, no sentence
     "food": ["a photo of {}, a type of food."],          # same template used for Food-101 (fair bias test)
@@ -32,6 +33,7 @@ TEMPLATES: dict[str, list[str]] = {
 }
 
 # The three name columns compared in E3.
+# Tuple of column names in class_names.csv, in the order the languages are compared.
 LANGUAGES = ("english", "hindi_roman", "hindi_devanagari")
 
 
@@ -43,9 +45,10 @@ def build_prompts(names: Sequence[str], template: str) -> list[list[str]]:
     "plain" gives [["poha"], ...]. Why: CLIP's text encoder reads sentences, and the wording changes
     accuracy (that is experiment E4). Used by: scripts/run_zeroshot.py and scripts/finetune_clip.py."""
     # Stop early with a clear message if the template name is wrong.
+    # Dict membership test on the template names.
     if template not in TEMPLATES:
         raise KeyError(f"unknown template {template!r}; choose from {sorted(TEMPLATES)}")
-    # For every class name, fill it into every sentence of the template.
+    # For every class name, fill it into every sentence of the template (str.format replaces "{}" with the name).
     return [[t.format(n) for t in TEMPLATES[template]] for n in names]
 
 
@@ -54,6 +57,7 @@ def valid_combo(language: str, template: str) -> bool:
 
     Returns False for the combination (Latin or English name inside a Hindi sentence), True otherwise,
     so run_zeroshot.py can skip meaningless language/template pairs."""
+    # Only the hindi_native template is restricted; every other template works with every language.
     return template != "hindi_native" or language == "hindi_devanagari"
 
 
@@ -62,4 +66,5 @@ def food101_name(label: str) -> str:
 
     Why: Food-101 folders use underscores, but CLIP was trained on normal text, so spaces read better.
     Used by: scripts/run_zeroshot.py for the Western side of the bias test."""
+    # Replace every underscore with a space.
     return label.replace("_", " ")
