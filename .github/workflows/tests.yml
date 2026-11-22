@@ -1,3 +1,5 @@
+# CI: on every pull request and every push to main, install CPU-only packages and run pytest.
+# The tests use synthetic images, so no dataset download or GPU is needed.
 name: tests
 on:
   pull_request:
