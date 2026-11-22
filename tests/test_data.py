@@ -2,6 +2,10 @@
 
 Checks folder discovery, removal of broken and duplicate images, the train/test split,
 and that data/class_names.csv is complete.
+
+Why this matters: the split is the base of every result. If a test image also appeared in train
+(leakage), or a duplicate sat in both, all accuracies would be too high. These tests use the fake_indian
+fixture from conftest.py: 4 classes x 12 random images, plus 1 exact duplicate and 1 corrupt file.
 """
 from conftest import CLASSES, PER_CLASS, ROOT
 
@@ -11,14 +15,21 @@ from foodclip.data import (
 
 
 def test_find_class_root_walks_nested_folders(fake_indian):
-    """The class folder is found even when it is nested two levels deep."""
+    """The class folder is found even when it is nested two levels deep.
+
+    Proves: the code copes with the Kaggle zip's double-nested folder, so no manual path fixing is needed.
+    """
     # The found folder is the inner one and holds exactly our class sub-folders.
     assert find_class_root(fake_indian).name == "Indian Food Images"
     assert {d.name for d in find_class_root(fake_indian).iterdir()} == set(CLASSES)
 
 
 def test_corrupt_and_duplicate_are_removed(fake_indian):
-    """Broken files and exact duplicates are dropped, every other image is kept."""
+    """Broken files and exact duplicates are dropped, every other image is kept.
+
+    Proves: cleaning removes exactly the bad files and nothing else. Why it matters: scraped data has
+    junk, and a duplicate kept in both train and test would inflate test accuracy.
+    """
     # All files are listed first: 48 good images plus the duplicate and the broken file.
     class_root, df = list_images(fake_indian)
     assert len(df) == len(CLASSES) * PER_CLASS + 2
@@ -26,6 +37,8 @@ def test_corrupt_and_duplicate_are_removed(fake_indian):
     valid = df[[is_valid_image(class_root / r) for r in df["relpath"]]]
     assert "jalebi/broken.jpg" not in set(valid["relpath"])
     # Dedup with distance 0 removes one of the two identical poha images.
+    # (distance 0 = only images with the same perceptual hash, a short fingerprint of how the image looks,
+    # count as duplicates)
     kept, removed = dedup(valid, class_root, max_distance=0)
     assert len(kept) == len(CLASSES) * PER_CLASS
     assert set(removed["relpath"]) & {"poha/000.jpg", "poha/dup.jpg"}
@@ -33,7 +46,11 @@ def test_corrupt_and_duplicate_are_removed(fake_indian):
 
 
 def test_cross_class_duplicate_drops_both_copies(fake_indian):
-    """An image that appears in two different classes is removed from both."""
+    """An image that appears in two different classes is removed from both.
+
+    Proves: when the same picture sits under two labels we cannot know which is right, so both copies go.
+    Why it matters: such an image would carry a wrong label either way.
+    """
     import shutil
 
     # Copy a jalebi image into the rasgulla folder, so its label is now ambiguous.
@@ -50,7 +67,11 @@ def test_cross_class_duplicate_drops_both_copies(fake_indian):
 
 
 def test_split_has_no_leakage_and_is_deterministic(fake_indian):
-    """The same seed gives the same split, and no image is in both train and test."""
+    """The same seed gives the same split, and no image is in both train and test.
+
+    Proves: the split is repeatable (needed so every teammate gets the same test set) and leak-free.
+    Stratified = each class contributes the same number of test images (here 3).
+    """
     # Two splits with the same seed must be identical.
     _, df = list_images(fake_indian)
     a = stratified_split(df, test_per_class=3, seed=42)
@@ -64,7 +85,11 @@ def test_split_has_no_leakage_and_is_deterministic(fake_indian):
 
 
 def test_small_class_still_gets_test_images(fake_indian):
-    """A class with too few images still gets at least one train and one test image."""
+    """A class with too few images still gets at least one train and one test image.
+
+    Proves: the split falls back gracefully for small classes instead of leaving a class with no train
+    or no test images, which would break training or make per-class accuracy undefined.
+    """
     # Ask for 15 test images when each class has only 12.
     _, df = list_images(fake_indian)
     split = stratified_split(df, test_per_class=15, seed=0)  # 12 imgs/class < 2*15
@@ -73,11 +98,17 @@ def test_small_class_still_gets_test_images(fake_indian):
 
 
 def test_class_names_csv_is_complete():
-    """The class list has 80 unique folders and every name column is filled in."""
+    """The class list has 80 unique folders and every name column is filled in.
+
+    Proves: the real data/class_names.csv (not fake data) is complete. Why it matters: a missing or
+    duplicated name would give a broken prompt, and a wrong script would give weak Devanagari results.
+    """
     # 80 rows, unique folder names, and no empty English or Hindi names.
     names = load_class_names(ROOT / "data" / "class_names.csv")
     assert len(names) == 80
     assert names["folder"].is_unique
     assert not names[["english", "hindi_roman", "hindi_devanagari"]].isna().any().any()
     # every Devanagari entry actually contains Devanagari characters
+    # (the Unicode block for Devanagari runs from U+0900 to U+097F; the two characters in the comparison
+    # are the first and last of that range)
     assert names["hindi_devanagari"].map(lambda s: any("ऀ" <= ch <= "ॿ" for ch in s)).all()

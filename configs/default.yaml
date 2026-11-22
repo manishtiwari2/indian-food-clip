@@ -1,69 +1,107 @@
 # All paths are relative to the repo root unless absolute.
 # Override any value from the CLI:  --set paths.indian_raw=/kaggle/input/... cnn.epochs=5
+# This file is the single place for paths, seeds and hyperparameters; scripts read it
+# through the config loader (src/foodclip/config.py), so change values here, not in code.
 # One global random seed used by every script (split, sampling, training).
+# Fixed so that every run, and every teammate, gets the same split and comparable results.
+# Do not change without the project lead's OK (it invalidates earlier results).
 seed: 42
 
 # Where data is read from and where outputs are written.
 paths:
+  # Input folder for the Indian dataset; used by prepare_data.py (on Kaggle, override with --set).
   indian_raw: data/raw/indian        # folder that contains one sub-folder per class
+  # Food-101 location for the Western comparison set; used by prepare_data.py and the CLIP scripts.
   food101_root: data/raw/food101     # torchvision Food101 root (contains food-101/)
+  # Class list read by the prompt builders and the data code; the folder column must match the dataset.
   class_names: data/class_names.csv  # 80 classes with English, romanised Hindi and Devanagari names
+  # Written by prepare_data.py and read by every later step, so all steps share one split.
   splits: splits                     # train/test split CSVs
+  # Written by extract_features.py, read by run_zeroshot.py and run_fewshot.py (gitignored).
   features: features                 # cached CLIP image features (.npz)
+  # Every experiment script writes its metric rows here; these CSVs are the source of report numbers.
   results: results                   # metric CSVs
+  # Written by make_figures.py and included by the LaTeX report.
   figures: report/figures            # PDF figures for the report
+  # Written by train_cnn.py and finetune_clip.py (gitignored).
   checkpoints: checkpoints           # saved model weights
 
 # How the Indian dataset is cleaned and split (used by prepare_data.py).
+# Do not change without the project lead's OK: the split defines the test set for all experiments.
 split:
+  # A fixed number per class keeps the test set balanced across classes.
   test_per_class: 15                 # test images per class; small classes get about 30% instead
+  # Removes near-duplicates (the dataset is Google-scraped) so train and test do not leak.
   dedup_max_distance: 4              # perceptual-hash Hamming distance; 0 = exact duplicates only
 
 # Western comparison set: a random subset of the Food-101 test images (E4 bias).
+# Used by prepare_data.py; do not change without the project lead's OK.
 food101:
+  # Matches the 80 Indian classes so the Indian-vs-Western comparison is like for like.
   n_classes: 80                      # number of Food-101 classes picked at random
+  # Number of images per picked class in the Western test set.
   per_class: 50                      # test images taken from each picked class
 
-# E1: small ResNet-style CNN trained from scratch.
+# E1: small ResNet-style CNN trained from scratch (used by train_cnn.py).
 cnn:
   image_size: 128                    # images are resized to 128 x 128 pixels
+  # Images per optimiser step.
   batch_size: 64
+  # Training length for the from-scratch baseline (override with --set cnn.epochs=5 for quick runs).
   epochs: 50
   lr: 0.001                          # AdamW learning rate
   weight_decay: 0.0005               # AdamW weight decay
+  # Validation data is held out of the training split (not the test set) for model selection.
   val_fraction: 0.1                  # share of training images kept aside for validation
   color_jitter: 0.0                  # brightness/contrast jitter strength for training; 0 = off
   num_workers: 2                     # data-loader worker processes
 
 # CLIP models whose image features are extracted and cached.
+# Used by extract_features.py (and by the zero-shot / few-shot scripts to find the cached features).
 clip:
+  # Images per forward pass while extracting features.
   batch_size: 128
+  # Data-loader worker processes for feature extraction.
   num_workers: 2
   models:                            # open_clip model name and pretrained weights tag
+    # Each entry is compared in E2-E5; every result row records model and pretrained tag.
     - {name: ViT-B-32, pretrained: openai}
     - {name: ViT-B-16, pretrained: openai}
     - {name: xlm-roberta-base-ViT-B-32, pretrained: laion5b_s13b_b90k}  # multilingual text encoder
 
-# E2-E4: zero-shot prompt settings to try.
+# E2-E4: zero-shot prompt settings to try (used by run_zeroshot.py).
 zeroshot:
+  # Each language selects one class-name column, comparing English with Hindi (romanised and Devanagari).
   languages: [english, hindi_roman, hindi_devanagari]  # columns of data/class_names.csv
+  # Each template wraps the class name in a sentence; every result row records the template.
   templates: [plain, food, indian, ensemble, hindi_native]  # prompt templates from foodclip.prompts
 
-# E5: linear probe on frozen CLIP features.
+# E5: linear probe on frozen CLIP features (used by run_fewshot.py).
 fewshot:
+  # How many labelled images per class the probe sees, to show how many shots close the gap.
   shots: [1, 2, 4, 8, 16, 0]         # 0 = all training images
+  # Repeating with several seeds averages out which shots happened to be sampled.
   seeds: [0, 1, 2]                   # each shot level is repeated with these seeds
-  C: 0.316                           # inverse L2 strength for logistic regression
+  # Regularisation strength of the logistic-regression probe. Set by the lead; reason not recorded in the repo.
+  C: 0.316                          # inverse L2 strength for logistic regression
+  # Class weighting option; see decision D12 in docs/DECISIONS.md. Post-hoc: added after a first run without
+  # weights and after looking at the test accuracy.
   class_weight: balanced             # balanced or null (null = no weights, the old behaviour; see D12)
 
-# E7: fine-tune the whole CLIP image encoder.
+# E7: fine-tune the whole CLIP image encoder (used by finetune_clip.py).
 finetune:                            # D13: full fine-tune of the image encoder; head starts as zero-shot
+  # Which CLIP model is fine-tuned.
   model: {name: ViT-B-16, pretrained: openai}
+  # Head language and template were chosen from the zero-shot test results (D13, post-hoc). The hyperparameters
+  # below are fixed; no hyperparameter search is recorded in the repo. Best epoch: picked on the validation images.
   language: hindi_roman              # head init = best ViT-B/16 zero-shot setting (Section 5.2)
   template: food                     # prompt template used to build the starting head
+  # Short schedule: the notebook notes about 10 min on a T4 for this run.
   epochs: 10
   lr: 1.0e-5                         # AdamW learning rate, 100x smaller than the CNN's
   weight_decay: 0.1                  # AdamW weight decay
+  # Images per optimiser step.
   batch_size: 32
   val_fraction: 0.1                  # same validation split as the CNN (same seed)
+  # Data-loader worker processes.
   num_workers: 2

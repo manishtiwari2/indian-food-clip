@@ -1,6 +1,10 @@
 """Unit tests for metrics, few-shot probe, prompts, CNN, CLIP fine-tune head and config.
 
 All inputs are tiny hand-made arrays or random tensors, so the tests run on CPU in seconds.
+
+Why: these are the building blocks behind every reported number. Each test uses inputs small enough
+that the right answer can be worked out by hand, so a failing test means a real bug in the formula.
+No real images or CLIP weights are used. Unlike the smoke test, these call library functions directly.
 """
 import numpy as np
 import pytest
@@ -14,7 +18,11 @@ from foodclip.prompts import TEMPLATES, build_prompts, valid_combo
 
 
 def test_topk_and_summary():
-    """Top-k accuracy is correct for small k and for k larger than the number of classes."""
+    """Top-k accuracy is correct for small k and for k larger than the number of classes.
+
+    Proves: the main metric is right. Top-k = the true class is among the k highest-scored classes.
+    Why it matters: top-1 and top-5 are the headline numbers of every experiment.
+    """
     # 3 images, 3 classes: only the first image has the right class ranked first.
     scores = np.array([[0.9, 0.1, 0.0], [0.2, 0.3, 0.5], [0.6, 0.3, 0.1]])
     y = np.array([0, 1, 2])
@@ -27,7 +35,11 @@ def test_topk_and_summary():
 
 
 def test_per_class_and_confusions():
-    """Per-class accuracy and the most common mistake are computed correctly."""
+    """Per-class accuracy and the most common mistake are computed correctly.
+
+    Proves: the tables behind the "hardest dishes" figures and the confusion analysis are right.
+    y = true labels, pred = predicted labels (not scores).
+    """
     # Class "a" is right once out of twice; class "b" is always right.
     y, pred = np.array([0, 0, 1, 1]), np.array([0, 1, 1, 1])
     pc = per_class_accuracy(y, pred, ["a", "b"])
@@ -38,7 +50,11 @@ def test_per_class_and_confusions():
 
 
 def test_k_shot_sampling():
-    """k-shot sampling takes exactly k images per class and is repeatable with a seed."""
+    """k-shot sampling takes exactly k images per class and is repeatable with a seed.
+
+    Proves: the few-shot experiment (E5) gives every class the same number of labelled examples, and
+    that a seed fixes which ones are picked (different seeds are used to average out luck).
+    """
     # 5 classes with 10 images each; ask for 3 per class.
     y = np.repeat(np.arange(5), 10)
     idx = sample_k_shot(y, 3, seed=1)
@@ -49,7 +65,12 @@ def test_k_shot_sampling():
 
 
 def test_linear_probe_and_zero_shot_on_separable_features():
-    """Both the linear probe and zero-shot scoring are near perfect on easy features."""
+    """Both the linear probe and zero-shot scoring are near perfect on easy features.
+
+    Proves: the two CLIP-feature classifiers work end to end. Linear probe = logistic regression trained
+    on image features; zero-shot = compare image features to class text embeddings with no training.
+    Features are unit length, as real CLIP features are after normalisation.
+    """
     # Build 4 well separated clusters of unit-length 16-d features.
     rng = np.random.default_rng(0)
     centers = np.eye(4, 16)
@@ -64,7 +85,11 @@ def test_linear_probe_and_zero_shot_on_separable_features():
 
 
 def test_class_weight_reaches_logistic_regression(monkeypatch):
-    """The class_weight, C and max_iter settings are passed to scikit-learn unchanged."""
+    """The class_weight, C and max_iter settings are passed to scikit-learn unchanged.
+
+    Proves: the probe's settings really reach LogisticRegression. A "spy" (fake class) is swapped in with
+    monkeypatch, so we check the arguments without training a real model.
+    """
     seen = []
 
     # Fake LogisticRegression that only records the arguments it was built with.
@@ -90,7 +115,11 @@ def test_class_weight_reaches_logistic_regression(monkeypatch):
 
 
 def test_balanced_weights_do_nothing_when_classes_are_equal_and_matter_when_not():
-    """Balanced weights change nothing for equal class sizes but change results for unequal ones."""
+    """Balanced weights change nothing for equal class sizes but change results for unequal ones.
+
+    Proves: class_weight="balanced" behaves as theory says (weights are all equal when classes are equal),
+    so the k-shot rows are unaffected while the "all images" row, where class sizes differ, is corrected.
+    """
     # Equal class sizes: plain and balanced probes give exactly the same output.
     rng = np.random.default_rng(1)
     y = np.repeat(np.arange(4), 16)  # exactly k=16 images per class, like the k-shot rows
@@ -105,13 +134,20 @@ def test_balanced_weights_do_nothing_when_classes_are_equal_and_matter_when_not(
 
 
 def test_fewshot_class_weight_in_config():
-    """The config default is balanced, and it can be switched off with null from the CLI."""
+    """The config default is balanced, and it can be switched off with null from the CLI.
+
+    Proves: configs/default.yaml and the --set override agree with what the few-shot script expects.
+    """
     assert load_config()["fewshot"]["class_weight"] == "balanced"
     assert load_config(overrides=["fewshot.class_weight=null"])["fewshot"]["class_weight"] is None
 
 
 def test_prompts():
-    """Prompts are built per class and template, and bad language/template pairs are rejected."""
+    """Prompts are built per class and template, and bad language/template pairs are rejected.
+
+    Proves: the text fed to CLIP is built correctly. A prompt is a sentence such as "a photo of poha";
+    the "ensemble" template makes several sentences per class whose embeddings are averaged.
+    """
     # The ensemble template gives one prompt per template line, and the prompt contains the class name.
     p = build_prompts(["poha", "jalebi"], "ensemble")
     assert len(p) == 2 and len(p[0]) == len(TEMPLATES["ensemble"]) and "poha" in p[0][0]
@@ -124,7 +160,11 @@ def test_prompts():
 
 
 def test_cnn_forward_and_one_step():
-    """The CNN gives one score per class and can train and predict for one step."""
+    """The CNN gives one score per class and can train and predict for one step.
+
+    Proves: the E1 baseline network has the right output shape and the train/predict helpers run
+    without error and give a finite loss. It does not check accuracy (random data, one step).
+    """
     # A batch of 8 random 64x64 images gives an 8 x 4 score matrix.
     torch.manual_seed(0)
     model = SmallResNet(n_classes=4)
@@ -139,7 +179,11 @@ def test_cnn_forward_and_one_step():
 
 
 def test_clip_classifier_starts_as_zero_shot_and_trains():
-    """The fine-tune model first gives the same scores as zero-shot, then its encoder learns."""
+    """The fine-tune model first gives the same scores as zero-shot, then its encoder learns.
+
+    Proves two things for E7: (1) the head built from text embeddings reproduces zero-shot scores, so
+    "epoch 0 = zero-shot" is true; (2) gradients reach the image encoder, so it is really being fine-tuned.
+    """
     from foodclip.finetune import ClipClassifier
 
     # A tiny linear layer plays the image encoder; 3 random unit vectors play the class text embeddings.
@@ -161,7 +205,11 @@ def test_clip_classifier_starts_as_zero_shot_and_trains():
 
 
 def test_config_overrides():
-    """`--set key=value` overrides work for numbers, paths and lists."""
+    """`--set key=value` overrides work for numbers, paths and lists.
+
+    Proves: values typed on the command line are parsed to the right type (int, string, list), which is
+    how Kaggle paths and short smoke-test settings are passed without editing the YAML file.
+    """
     cfg = load_config(overrides=["cnn.epochs=3", "paths.indian_raw=/tmp/x", "fewshot.shots=[1,2]"])
     assert cfg["cnn"]["epochs"] == 3
     assert cfg["paths"]["indian_raw"] == "/tmp/x"
@@ -169,7 +217,12 @@ def test_config_overrides():
 
 
 def test_color_jitter_off_is_unchanged_and_on_changes_brightness():
-    """Jitter 0 gives repeatable output; jitter above 0 changes the training image."""
+    """Jitter 0 gives repeatable output; jitter above 0 changes the training image.
+
+    Proves: the CNN's colour-jitter augmentation (random brightness/contrast changes) can be turned off,
+    is random only when on, and is never applied at validation time. The image is plain grey so any
+    change in the output must come from the jitter.
+    """
     import random
 
     from PIL import Image
