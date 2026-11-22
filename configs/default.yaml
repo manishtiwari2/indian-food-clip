@@ -1,60 +1,69 @@
 # All paths are relative to the repo root unless absolute.
 # Override any value from the CLI:  --set paths.indian_raw=/kaggle/input/... cnn.epochs=5
+# One global random seed used by every script (split, sampling, training).
 seed: 42
 
+# Where data is read from and where outputs are written.
 paths:
   indian_raw: data/raw/indian        # folder that contains one sub-folder per class
   food101_root: data/raw/food101     # torchvision Food101 root (contains food-101/)
-  class_names: data/class_names.csv
-  splits: splits
-  features: features
-  results: results
-  figures: report/figures
-  checkpoints: checkpoints
+  class_names: data/class_names.csv  # 80 classes with English, romanised Hindi and Devanagari names
+  splits: splits                     # train/test split CSVs
+  features: features                 # cached CLIP image features (.npz)
+  results: results                   # metric CSVs
+  figures: report/figures            # PDF figures for the report
+  checkpoints: checkpoints           # saved model weights
 
+# How the Indian dataset is cleaned and split (used by prepare_data.py).
 split:
-  test_per_class: 15
+  test_per_class: 15                 # test images per class; small classes get about 30% instead
   dedup_max_distance: 4              # perceptual-hash Hamming distance; 0 = exact duplicates only
 
+# Western comparison set: a random subset of the Food-101 test images (E4 bias).
 food101:
-  n_classes: 80
-  per_class: 50
+  n_classes: 80                      # number of Food-101 classes picked at random
+  per_class: 50                      # test images taken from each picked class
 
+# E1: small ResNet-style CNN trained from scratch.
 cnn:
-  image_size: 128
+  image_size: 128                    # images are resized to 128 x 128 pixels
   batch_size: 64
   epochs: 50
-  lr: 0.001
-  weight_decay: 0.0005
-  val_fraction: 0.1
+  lr: 0.001                          # AdamW learning rate
+  weight_decay: 0.0005               # AdamW weight decay
+  val_fraction: 0.1                  # share of training images kept aside for validation
   color_jitter: 0.0                  # brightness/contrast jitter strength for training; 0 = off
-  num_workers: 2
+  num_workers: 2                     # data-loader worker processes
 
+# CLIP models whose image features are extracted and cached.
 clip:
   batch_size: 128
   num_workers: 2
-  models:
+  models:                            # open_clip model name and pretrained weights tag
     - {name: ViT-B-32, pretrained: openai}
     - {name: ViT-B-16, pretrained: openai}
-    - {name: xlm-roberta-base-ViT-B-32, pretrained: laion5b_s13b_b90k}
+    - {name: xlm-roberta-base-ViT-B-32, pretrained: laion5b_s13b_b90k}  # multilingual text encoder
 
+# E2-E4: zero-shot prompt settings to try.
 zeroshot:
-  languages: [english, hindi_roman, hindi_devanagari]
-  templates: [plain, food, indian, ensemble, hindi_native]
+  languages: [english, hindi_roman, hindi_devanagari]  # columns of data/class_names.csv
+  templates: [plain, food, indian, ensemble, hindi_native]  # prompt templates from foodclip.prompts
 
+# E5: linear probe on frozen CLIP features.
 fewshot:
   shots: [1, 2, 4, 8, 16, 0]         # 0 = all training images
-  seeds: [0, 1, 2]
+  seeds: [0, 1, 2]                   # each shot level is repeated with these seeds
   C: 0.316                           # inverse L2 strength for logistic regression
   class_weight: balanced             # balanced or null (null = no weights, the old behaviour; see D12)
 
+# E7: fine-tune the whole CLIP image encoder.
 finetune:                            # D13: full fine-tune of the image encoder; head starts as zero-shot
   model: {name: ViT-B-16, pretrained: openai}
   language: hindi_roman              # head init = best ViT-B/16 zero-shot setting (Section 5.2)
-  template: food
+  template: food                     # prompt template used to build the starting head
   epochs: 10
-  lr: 1.0e-5
-  weight_decay: 0.1
+  lr: 1.0e-5                         # AdamW learning rate, 100x smaller than the CNN's
+  weight_decay: 0.1                  # AdamW weight decay
   batch_size: 32
   val_fraction: 0.1                  # same validation split as the CNN (same seed)
   num_workers: 2
