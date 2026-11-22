@@ -16,7 +16,8 @@ Why it only reads CSVs: every number in a figure must come from a real run, so t
 recomputes or types in a result. If a CSV is missing the figure is skipped instead of faked.
 
 Vocabulary: top-1 = the right class is the model's first guess; "shots" = labelled training images per
-class; "gap" = Western (Food-101) accuracy minus Indian accuracy for the same model.
+class; "gap" = Western (Food-101) zero-shot top-1 compared with Indian accuracy for the same model;
+gap.csv lists the numbers side by side (there is no difference column).
 """
 from __future__ import annotations
 
@@ -53,8 +54,9 @@ def fig_bias(zs: pd.DataFrame, out: Path) -> None:
     """Bar chart of zero-shot top-1 per model: Indian (two name languages) vs Food-101, same 'food' template.
 
     Input zs = rows of results/zeroshot.csv; out = figures folder. Output: zeroshot_bias.pdf.
-    This is the main "Indian vs Western" picture: if the Food-101 bars are taller than the Indian ones,
-    CLIP knows Western food better. Devanagari is left out here; fig_language covers all languages.
+    This is the main "Indian vs Western" picture. Taller Food-101 bars mean a higher accuracy on Food-101;
+    the two datasets differ (how they were built, Asian dishes in Food-101), so this is not a pure cuisine
+    effect (see the report). Devanagari is left out here; fig_language covers all languages.
     """
     # Use only the "food" template, which is the same wording for both datasets (fair comparison).
     sub = zs[zs["template"] == "food"]
@@ -84,8 +86,8 @@ def fig_language(zs: pd.DataFrame, out: Path) -> None:
     """Bar chart of the best zero-shot top-1 per model and prompt language on the Indian test set.
 
     Input zs = results/zeroshot.csv rows. Output: zeroshot_language.pdf. Shows whether English,
-    romanised Hindi or Devanagari names work best. "Best over templates" means each bar uses the most
-    favourable prompt wording, so the language comparison is not hurt by one bad template.
+    romanised Hindi or Devanagari names work best. "Best over templates" means each bar uses the template
+    with the highest top-1 on the test set. This is a post-hoc choice and favours zero-shot (optimistic).
     """
     # Table: rows = model, columns = language, value = best top-1 over all templates.
     sub = zs[zs["dataset"] == "indian"]
@@ -105,8 +107,8 @@ def fig_fewshot_and_gap(fsh: pd.DataFrame, zs: pd.DataFrame | None, out: Path, r
     Inputs: fsh = results/fewshot.csv rows (linear probe, columns include shots, seed, top1, n_train);
     zs = zero-shot rows (or None); out = figures folder; res = results folder.
     Outputs: fewshot_curve.pdf and gap.csv. Answers the project question "how many labelled shots
-    close the Indian-vs-Western gap?": the answer is the smallest k whose mean accuracy reaches the
-    model's Food-101 zero-shot accuracy, or "not reached".
+    close the Indian-vs-Western gap?": the answer is the smallest k in 1-16 whose mean accuracy reaches the
+    model's Food-101 zero-shot accuracy, or "not reached". The "all" point is not checked.
     """
     # Keep only the class-weighted rows when they exist, so the curve uses one setting.
     fsh = fsh.copy()
@@ -136,7 +138,8 @@ def fig_fewshot_and_gap(fsh: pd.DataFrame, zs: pd.DataFrame | None, out: Path, r
         # Shot counts whose mean accuracy reaches the Western target (empty if there is no target).
         # (An old fewshot.csv without the class_weight column also works: the check above is skipped.)
         reached = curve[curve["mean"] >= west]["k"] if not np.isnan(west) else pd.Series(dtype=float)
-        # Best Indian zero-shot top-1 over all languages and templates for this model.
+        # Best Indian zero-shot top-1 over all languages and templates for this model. The best setting is
+        # picked on the test set (post-hoc), so this number is optimistic for zero-shot.
         ind_zs = (zs[(zs.dataset == "indian") & (zs.model == model)]["top1"].max() if zs is not None else np.nan)
         # One gap-table row: smallest k that reaches the target, or "not reached".
         gap_rows.append({"model": model, "western_zero_shot_top1": west, "indian_best_zero_shot_top1": ind_zs,
@@ -161,7 +164,7 @@ def fig_worst_classes(pc: pd.DataFrame, zs: pd.DataFrame | None, out: Path, n: i
 
     Inputs: pc = results/zeroshot_per_class.csv (one row per model/setting/class), zs = results/zeroshot.csv
     (used to choose the model), n = how many dishes to show. Output: worst_classes.pdf.
-    Useful for the error analysis: it names the dishes CLIP cannot tell apart or does not know.
+    Shows the dishes with the lowest zero-shot accuracy.
     """
     # Per-class rows for the Indian set with romanised Hindi names and the "food" template.
     sub = pc[(pc.dataset == "indian") & (pc.template == "food") & (pc.language == "hindi_roman")]

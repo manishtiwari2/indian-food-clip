@@ -15,14 +15,15 @@ Writes results/finetune.csv, results/finetune_history.csv, results/finetune_per_
 How it connects to other steps: it needs the split CSVs from prepare_data.py and the raw images (it reads
 images directly, not the cached features, because the encoder weights change every step so cached
 features would be stale). It reuses indian_names() from run_zeroshot.py so the class names and prompts match
-the zero-shot experiment exactly. make_figures.py does not plot this CSV; the report reads it directly.
+the zero-shot experiment exactly. make_figures.py does not use this CSV; the report numbers are copied from it.
 
 Why fine-tune at all: the linear probe (E5) only learns a small layer on top of frozen CLIP features.
 Fine-tuning also adapts the image encoder itself, which is more powerful but needs more compute and can
 overfit when there are few images. Comparing E5 and E7 shows how much that extra freedom buys.
 
-Interview note: "epoch 0 = zero-shot" is a useful sanity check. If epoch 0 val accuracy is far from the
-E2-E4 zero-shot number for the same settings, something is wrong with the head or the preprocessing.
+Interview note: "epoch 0 = zero-shot" is a useful sanity check. Epoch-0 validation accuracy should be roughly
+in the range of the zero-shot accuracy for the same language and template. It is measured on the 225
+validation images, not on the test set, so it is not the same number as the E2-E4 test result.
 """
 from __future__ import annotations
 
@@ -64,7 +65,7 @@ def main() -> None:
     f, m = cfg["finetune"], cfg["finetune"]["model"]
     # Fix all random number generators so the run can be repeated; the seed comes from the config.
     set_seed(cfg["seed"])
-    # Pick the GPU if there is one, otherwise the CPU (fine-tuning on CPU works but is very slow).
+    # Pick the GPU if there is one, otherwise the CPU. In practice this needs a GPU (the reported run used a T4).
     device = get_device()
 
     # Load the Indian split; hold out a validation part of train to choose the best epoch (test stays unseen).
@@ -107,8 +108,7 @@ def main() -> None:
     train_dl, val_dl, test_dl = loader(tr_idx, True), loader(val_idx, False), loader(test_idx, False)
     # AdamW = Adam with proper weight decay (a penalty on big weights that reduces overfitting).
     opt = torch.optim.AdamW(model.parameters(), lr=f["lr"], weight_decay=f["weight_decay"])
-    # Cosine schedule: the learning rate falls smoothly from lr to ~0 over all epochs, which keeps late
-    # updates small so the pretrained CLIP weights are not damaged.
+    # Cosine schedule: the learning rate decays from lr to about 0 over the epochs.
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=f["epochs"])
     # GradScaler is needed for float16 mixed precision (prevents tiny gradients from rounding to zero);
     # it is switched off on CPU.

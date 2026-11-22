@@ -16,7 +16,7 @@ zero-shot uses 0 labelled images, this uses k per class, so together they show h
 needed to close the Indian-vs-Western gap.
 
 Linear probe = keep CLIP frozen and train only one linear layer (here logistic regression) on top of
-its image vectors. It is fast and needs few images because only a small number of weights are learned.
+its image vectors. Only the linear layer is trained, CLIP stays frozen.
 """
 from __future__ import annotations
 
@@ -46,9 +46,10 @@ def main() -> None:
     args = p.parse_args()
     cfg = config_from_args(args)
     fs = cfg["fewshot"]  # shots list, seeds list, regularisation strength C, class_weight
+    # class_weight "balanced" only changes the "all" runs (19-34 train images per class); for k<=16 every class
+    # has k images, so all weights are 1. Added after a first run without weights (D12); post-hoc, see below.
     class_weight = fs.get("class_weight")  # "balanced" or None; a missing key keeps the old behaviour
     # Load the Indian split and make boolean masks for train and test rows.
-    # "balanced" weights rare classes higher so classes with fewer images are not ignored.
     _, df, classes = load_dataset(cfg, "indian")
     split, y = df["split"].to_numpy(), df["y"].to_numpy()
     train, test = split == "train", split == "test"

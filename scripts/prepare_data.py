@@ -53,7 +53,8 @@ def prepare_indian(cfg: dict) -> None:
 
     Input: the raw image folders (one sub-folder per dish) at cfg["paths"]["indian_raw"].
     Output: splits/indian_split.csv (kept images + train/test column) and splits/indian_removed.csv
-    (dropped images with the reason, "corrupt" or the duplicate they matched). Both are small text
+    (dropped images; columns relpath, label, duplicate_of, reason, where reason is corrupt, duplicate
+    or cross_class_duplicate). Both are small text
     files that are committed to git; the images themselves are never committed.
     """
     # Create the output folder and list every image with its class label.
@@ -77,7 +78,8 @@ def prepare_indian(cfg: dict) -> None:
     # Stack the corrupt rows on top of the duplicate rows into one "removed" table.
     removed = pd.concat([corrupt, removed], ignore_index=True)
     # Split each class into train and test with the fixed seed, so the split is reproducible.
-    # test_per_class is how many test images each class gets; the rest go to train.
+    # test_per_class test images per class; classes with fewer than 2 x test_per_class images get about 30%
+    # (at least 1) for test (D10). The rest go to train.
     split = stratified_split(kept, cfg["split"]["test_per_class"], cfg["seed"])
 
     # Save the split and the list of removed images, then print a short summary.
@@ -89,8 +91,9 @@ def prepare_indian(cfg: dict) -> None:
     print(f"split: {counts}; min images/class {split.groupby('label').size().min()}")
 
     # Check that the dataset folders and data/class_names.csv list the same classes (needed for prompts).
-    # The zero-shot step looks up each folder name in class_names.csv to build text prompts, so a mismatch
-    # would silently break the prompts. missing = folders without a csv row; extra = csv rows without a folder.
+    # The zero-shot step looks up each folder name in class_names.csv to build text prompts. A mismatch makes
+    # it fall back to the folder name for that class (with a WARNING), which usually gives worse prompts.
+    # missing = folders without a csv row; extra = csv rows without a folder.
     missing, extra = check_class_names(split["label"].unique(), load_class_names(resolve(cfg["paths"]["class_names"])))
     if missing or extra:
         print("WARNING class_names.csv does not match dataset folders:")

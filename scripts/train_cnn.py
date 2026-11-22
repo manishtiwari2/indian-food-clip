@@ -38,7 +38,8 @@ from foodclip.config import base_parser, config_from_args, resolve  # noqa: E402
 # train_val_split: split the train rows into train and validation, class by class.
 from foodclip.data import ImageDataset, SimpleTransform, load_dataset, train_val_split  # noqa: E402
 # set_seed: seed Python/NumPy/PyTorch. get_device: GPU if available else CPU.
-# run_meta: dict of run info (GPU, library versions). write_rows: write/append a list of dicts to CSV.
+# run_meta: run info (date/time, torch version, Python version, GPU name or cpu).
+# write_rows: write/append a list of dicts to CSV.
 from foodclip.io import get_device, run_meta, set_seed, write_rows  # noqa: E402
 # topk_accuracy: fraction of images whose true class is in the top k scores.
 # summarize: dict with top1, top5, macro_f1. per_class_accuracy: accuracy for each class as a table.

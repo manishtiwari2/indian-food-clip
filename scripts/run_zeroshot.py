@@ -16,7 +16,7 @@ opened here) and before make_figures.py (which plots the CSVs written here).
 How zero-shot works: for each class we write a sentence such as "a photo of <dish>, a type of Indian
 food", encode it with CLIP's text encoder, and get one text vector per class. An image is assigned to
 the class whose text vector has the highest cosine similarity with the image vector. No weights are
-trained, the model has never seen these labels as training targets.
+trained here; classification uses only the text prompts.
 """
 from __future__ import annotations
 
@@ -35,7 +35,8 @@ from foodclip.config import base_parser, config_from_args, resolve  # noqa: E402
 # load_class_names: read data/class_names.csv (folder, english, hindi_roman, hindi_devanagari).
 # load_dataset: read the split CSV into (paths, table, class names).
 from foodclip.data import load_class_names, load_dataset  # noqa: E402
-# load_clip: model + tokenizer. encode_text: tokenize prompts and run the text encoder (normalised output).
+# load_clip: model + tokenizer. encode_text: encodes each prompt, averages the prompts of one class
+# (matters for the "ensemble" template) and normalises the result to length 1.
 # feature_path / load_features: find and read the cached image features. model_tag: short model label for printing.
 from foodclip.features import encode_text, feature_path, load_clip, load_features, model_tag  # noqa: E402
 # zero_shot_scores: image-vs-text similarity matrix (scaled cosine similarity).
@@ -45,8 +46,8 @@ from foodclip.io import get_device, run_meta, write_rows  # noqa: E402
 # (true class, predicted class) mistakes.
 from foodclip.metrics import per_class_accuracy, summarize, top_confusions  # noqa: E402
 # build_prompts: put class names into a template sentence. food101_name: pretty English name for a
-# Food-101 folder (e.g. apple_pie -> apple pie). valid_combo: some language/template pairs make no sense
-# (for example an "Indian food" English phrase around a Devanagari name), this filters them out.
+# Food-101 folder (e.g. apple_pie -> apple pie). valid_combo: the Hindi sentence template (hindi_native)
+# is only used with Devanagari names; every other language/template pair is allowed.
 from foodclip.prompts import build_prompts, food101_name, valid_combo  # noqa: E402
 
 FOOD101_TEMPLATES = ["plain", "food"]  # no "Indian food" wording for the Western set
@@ -131,7 +132,8 @@ def main() -> None:
         torch.cuda.empty_cache()
 
     # Write all three result CSVs (overwritten on each run).
-    # Unlike the CNN and few-shot scripts there is no append: a full re-run replaces the old results.
+    # Overwritten on each run (like fewshot.csv): a full re-run replaces the old results.
+    # Only the CNN and fine-tune CSVs append.
     res = resolve(cfg["paths"]["results"])
     write_rows(rows, res / "zeroshot.csv")
     write_rows(per_class, res / "zeroshot_per_class.csv")
