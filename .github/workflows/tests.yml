@@ -1,20 +1,30 @@
 # CI: on every pull request and every push to main, install CPU-only packages and run pytest.
 # The tests use synthetic images, so no dataset download or GPU is needed.
+# Why: a failing check shows a broken change before a teammate reviews or merges it.
 name: tests
+# When the workflow runs.
 on:
+  # Every pull request, so changes are tested before review.
   pull_request:
+  # Every push to main (merges), so main stays tested.
   push:
     branches: [main]
 jobs:
   pytest:
+    # GitHub-hosted Linux runner; no GPU needed.
     runs-on: ubuntu-latest
     steps:
+      # Step 1: fetch the repository code at the commit being tested.
       - uses: actions/checkout@v4
+      # Step 2: install Python 3.11 (the project needs 3.10+).
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      # Step 3: install dependencies. CPU-only torch is used because the runner has no GPU.
+      # open_clip is not installed because the tests use synthetic data.
       - name: Install (CPU torch)
         run: |
           pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install numpy pandas scikit-learn imagehash Pillow PyYAML matplotlib pytest
+      # Step 4: run the whole test suite quietly; any failure fails the check.
       - run: python -m pytest -q
